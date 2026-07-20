@@ -513,6 +513,12 @@
           <div class="summary-line"><span>Rate</span><span id="sumRate">—</span></div>
           <div class="summary-line" id="sumDiscountRow" style="display:none;"><span id="sumDiscountLabel">Discount</span><span id="sumDiscountAmt" style="color:var(--sage); font-weight:700;">—</span></div>
           <div class="summary-line total"><span>Total</span><span id="sumTotal">$0</span></div>
+          <div class="summary-line" id="sumDepositRow" style="display:none;"><span style="font-weight:700;">Deposit Due Now (20%)</span><span id="sumDeposit" style="color:var(--terracotta); font-weight:700;">$0</span></div>
+          <div class="summary-line" id="sumBalanceRow" style="display:none;"><span>Balance Due at Session</span><span id="sumBalance">$0</span></div>
+        </div>
+
+        <div class="conflict-warning" id="conflictWarning" style="display:none; background:#fdecea; border:1px solid #e6a19b; color:#8a2e24; padding:12px 14px; border-radius:8px; font-size:13.5px; margin-top:10px;">
+          ⚠️ This date, time and duration is already booked for this space. Please choose a different time or duration.
         </div>
 
         <div class="login-prompt" id="calLoginPrompt" style="display:none;">
@@ -521,10 +527,11 @@
         </div>
 
         <div class="pay-panel" id="payPanel">
-          <div class="field-label" style="margin:0;">Scan to Pay</div>
+          <div class="field-label" style="margin:0;">Scan to Pay Deposit</div>
           <div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=FourwallsStudio-Payment-Demo" alt="Payment QR code"></div>
           <div class="pay-ref">Ref: FWS-<span id="payRef">00000</span> · PayNow / Bank Transfer</div>
-          <button class="confirm-btn" id="confirmBtn">I've Made Payment</button>
+          <p style="font-size:12.5px; color:var(--muted); margin:4px 0 0;">Pay the 20% deposit shown above to secure your booking. The remaining balance is due at your session.</p>
+          <button class="confirm-btn" id="confirmBtn">I've Paid the Deposit</button>
         </div>
         <div id="genQrArea"></div>
       </div>
@@ -1054,6 +1061,7 @@ function renderSpaceChips(){
 }
 let selectedSpace = null;
 let selectedDate = null, selectedDateISO = null, selectedTime = null, selectedDuration = null;
+let bookedSlotsCache = []; // { booking_date, start_time, duration_hours } for the currently selected space — real, non-cancelled bookings only
 
 // Calendar month state — uses the real current date on a live site (was frozen to a fixed demo date before)
 let today = new Date();
@@ -1074,6 +1082,37 @@ function selectSpaceChip(id){
   renderCalendar();
   updateSummary();
   document.getElementById('payPanel').classList.remove('show');
+  loadBookedSlots(id);
+}
+
+// Pulls every non-cancelled booking for this space (no customer info exposed) so the Calendar
+// page can warn about overlapping slots before the customer even tries to submit.
+async function loadBookedSlots(spaceId){
+  const { data, error } = await sb.rpc('get_booked_slots', { p_space_id: spaceId });
+  bookedSlotsCache = (!error && data) ? data : [];
+  updateSummary();
+}
+
+// Converts a TIME_OPTIONS label ("9:00 AM") into minutes-from-midnight
+function timeLabelToMinutes(label){
+  const idx = TIME_OPTIONS.indexOf(label);
+  return idx === -1 ? 0 : idx * 30;
+}
+// Converts a booking's date + start time + duration into an absolute [startMinute, endMinute) range,
+// using whole days as the unit so bookings that run past midnight compare correctly against each other.
+function bookingRangeMinutes(dateISO, timeLabel, durationHours){
+  const dayIndex = Math.floor(new Date(dateISO+'T00:00:00').getTime() / 86400000);
+  const start = dayIndex*1440 + timeLabelToMinutes(timeLabel);
+  return [start, start + durationHours*60];
+}
+// True if the currently-selected date/time/duration overlaps any existing booking for this space
+function hasSlotConflict(dateISO, timeLabel, durationHours){
+  if(!dateISO || !timeLabel || !durationHours) return false;
+  const [s, e] = bookingRangeMinutes(dateISO, timeLabel, durationHours);
+  return bookedSlotsCache.some(b => {
+    const [bs, be] = bookingRangeMinutes(b.booking_date, b.start_time, b.duration_hours);
+    return s < be && bs < e;
+  });
 }
 
 /* ===================== LOAD SPACES FROM SUPABASE (falls back to FALLBACK_SPACES if the fetch fails) ===================== */
@@ -1179,6 +1218,7 @@ function computeEndTime(startLabel, hours){
 
 function updateSummary(){
   const s = SPACES.find(x=>x.id===selectedSpace);
+  if(!s) return; // spaces/selection not ready yet (e.g. session-restore fires before loadSpacesFromDB resolves)
   document.getElementById('sumSpace').textContent = s.name;
   document.getElementById('sumDate').textContent = selectedDate || '—';
 
@@ -1191,7 +1231,9 @@ function updateSummary(){
   document.getElementById('sumRate').textContent = `$${s.price} / hr`;
 
   const discountRow = document.getElementById('sumDiscountRow');
-  let total = 0;
+  const depositRow = document.getElementById('sumDepositRow');
+  const balanceRow = document.getElementById('sumBalanceRow');
+  let total = 0, deposit = 0, balance = 0;
   if(selectedDuration){
     const subtotal = s.price * selectedDuration;
     const rate = getDiscountRate(selectedDuration);
@@ -1205,14 +1247,28 @@ function updateSummary(){
       total = subtotal;
       discountRow.style.display = 'none';
     }
+    deposit = total * 0.2;
+    balance = total - deposit;
   } else {
     discountRow.style.display = 'none';
   }
   document.getElementById('sumTotal').textContent = '$'+total.toFixed(0);
+  if(selectedDuration){
+    depositRow.style.display = 'flex';
+    balanceRow.style.display = 'flex';
+    document.getElementById('sumDeposit').textContent = '$'+deposit.toFixed(0);
+    document.getElementById('sumBalance').textContent = '$'+balance.toFixed(0);
+  } else {
+    depositRow.style.display = 'none';
+    balanceRow.style.display = 'none';
+  }
+
+  const conflict = hasSlotConflict(selectedDateISO, selectedTime, selectedDuration);
+  document.getElementById('conflictWarning').style.display = conflict ? 'block' : 'none';
 
   const payPanel = document.getElementById('payPanel');
   const loginPrompt = document.getElementById('calLoginPrompt');
-  const readyToPay = selectedDate && selectedTime && selectedDuration;
+  const readyToPay = selectedDate && selectedTime && selectedDuration && !conflict;
   if(readyToPay && currentUser){
     payPanel.classList.add('show');
     loginPrompt.style.display = 'none';
@@ -1230,32 +1286,31 @@ document.getElementById('confirmBtn').addEventListener('click', async ()=>{
   const { data: { user } } = await sb.auth.getUser();
   if(!user){ openAuth('booking'); return; }
 
-  const s = SPACES.find(x=>x.id===selectedSpace);
-  const subtotal = s.price * selectedDuration;
-  const rate = getDiscountRate(selectedDuration);
-  const total = subtotal - (subtotal * rate);
-  const refCode = 'FWS-' + document.getElementById('payRef').textContent;
+  if(hasSlotConflict(selectedDateISO, selectedTime, selectedDuration)){
+    alert('Sorry, that slot was just booked by someone else. Please choose a different time.');
+    await loadBookedSlots(selectedSpace);
+    return;
+  }
 
   btn.disabled = true; btn.textContent = 'Submitting…';
-  const { error } = await sb.from('bookings').insert({
-    user_id: user.id,
-    space_id: selectedSpace,
-    booking_date: selectedDateISO,
-    start_time: selectedTime,
-    duration_hours: selectedDuration,
-    subtotal: subtotal,
-    discount_rate: rate,
-    total: total,
-    payment_ref: refCode,
-    status: 'pending'
+  // All pricing (subtotal/discount/total/deposit) and the overlap check are recomputed and
+  // enforced server-side inside create_customer_booking() — the browser can't tamper with them.
+  const { data, error } = await sb.rpc('create_customer_booking', {
+    p_space_id: selectedSpace,
+    p_booking_date: selectedDateISO,
+    p_start_time: selectedTime,
+    p_duration_hours: selectedDuration
   });
-  btn.disabled = false; btn.textContent = "I've Made Payment";
+  btn.disabled = false; btn.textContent = "I've Paid the Deposit";
 
   if(error){
     alert('Something went wrong submitting your booking: ' + error.message);
+    await loadBookedSlots(selectedSpace);
+    updateSummary();
     return;
   }
-  alert('Booking submitted! Our team will confirm it once payment is verified — check the Reservation page.');
+  alert('Booking submitted! Our team will confirm it once your deposit is verified — check the Reservation page.');
+  await loadBookedSlots(selectedSpace);
   renderReservations();
   goToPage('reservation');
 });
@@ -1291,12 +1346,14 @@ async function renderReservations(){
     const day = String(d.getDate()).padStart(2,'0');
     const mon = d.toLocaleString('en-US', { month:'short' }).toUpperCase();
     const discountLabel = r.discount_rate > 0 ? `${Math.round(r.discount_rate*100)}%` : null;
+    const deposit = Number(r.deposit_amount || 0);
     return `
     <div class="res-card">
       <div class="res-date"><div class="d">${day}</div><div class="m">${mon}</div></div>
       <div class="res-info">
         <h4>${r.spaces ? r.spaces.name : r.space_id}</h4>
         <div class="sub"><span>🕐 ${r.start_time}</span><span>⏱ ${r.duration_hours} hours</span>${discountLabel ? `<span>🏷 ${discountLabel} off</span>` : ''}</div>
+        <div class="sub"><span>💰 Deposit: $${deposit.toFixed(0)}</span><span>Balance at session: $${(Number(r.total)-deposit).toFixed(0)}</span></div>
       </div>
       <span class="status-badge ${r.status}">${r.status}</span>
       <div class="res-price">$${Number(r.total).toFixed(0)}</div>
@@ -1413,15 +1470,15 @@ function renderAdminBookingTables(rows){
   `;
 
   document.getElementById('bookingsTable').innerHTML = `
-    <tr><th>Customer</th><th>Space</th><th>Date &amp; Time</th><th>Duration</th><th>Total</th><th>Status</th><th></th></tr>
+    <tr><th>Customer</th><th>Space</th><th>Date &amp; Time</th><th>Duration</th><th>Total</th><th>Deposit</th><th>Status</th><th></th></tr>
     ${rows.length ? rows.map(r => `
       <tr>
         <td>${r.customer_email}</td><td>${r.space_name}</td><td>${fmtBookingDate(r.booking_date, r.start_time)}</td>
         <td>${r.duration_hours} hrs${r.discount_rate > 0 ? ` (${Math.round(r.discount_rate*100)}% off)` : ''}</td>
-        <td>$${Number(r.total).toFixed(0)}</td><td>${badgeHtml(r.status)}</td>
+        <td>$${Number(r.total).toFixed(0)}</td><td>$${Number(r.deposit_amount||0).toFixed(0)}</td><td>${badgeHtml(r.status)}</td>
         ${actionCell(r)}
       </tr>
-    `).join('') : '<tr><td colspan="7">No bookings yet.</td></tr>'}
+    `).join('') : '<tr><td colspan="8">No bookings yet.</td></tr>'}
   `;
 }
 
