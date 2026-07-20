@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOURWALLS.STUDIO — Space Booking</title>
+<style>
+  :root{
+    --cream:#FBF4EC;
+    --cream-2:#F4E9DB;
+    --ink:#2E241D;
+    --ink-soft:#6B5D51;
+    --terracotta:#C7623F;
+    --terracotta-dark:#A94E30;
+    --amber:#E3A857;
+    --sage:#8A9A5B;
+    --line:#E7DBCB;
+    --white:#FFFFFF;
+    --radius-lg:22px;
+    --radius-md:14px;
+    --radius-sm:9px;
+    --shadow:0 8px 24px rgba(46,36,29,0.08);
+    --shadow-lg:0 16px 40px rgba(46,36,29,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:'Georgia', 'Iowan Old Style', serif; font-weight:600; margin:0 0 8px 0; letter-spacing:-0.01em;}
+  p{margin:0 0 8px 0; color:var(--ink-soft); line-height:1.6;}
+  a{color:inherit; text-decoration:none;}
+  button{font-family:inherit; cursor:pointer; border:none;}
+  ::-webkit-scrollbar{width:8px; height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:8px;}
+
+  /* ===== Top bar / nav ===== */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    background:rgba(251,244,236,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    max-width:1200px; margin:0 auto; padding:16px 28px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{
+    width:44px; height:38px; border-radius:10px; padding:0 4px;
+    background:linear-gradient(135deg, var(--terracotta), var(--amber));
+    display:flex; align-items:center; justify-content:center;
+    color:white; font-family:'Georgia',serif; font-weight:700; font-size:13px; letter-spacing:0.01em;
+    flex-shrink:0;
+  }
+  .brand-name{font-family:'Georgia',serif; font-size:19px; font-weight:700; color:var(--ink);}
+  .brand-sub{font-size:11px; color:var(--ink-soft); letter-spacing:0.08em; text-transform:uppercase; margin-top:-2px;}
+
+  nav.mainnav{display:flex; gap:4px; background:var(--cream-2); padding:5px; border-radius:100px;}
+  nav.mainnav button{
+    padding:9px 18px; border-radius:100px; font-size:14px; font-weight:600;
+    color:var(--ink-soft); background:transparent; transition:all .18s ease;
+  }
+  nav.mainnav button:hover{color:var(--ink);}
+  nav.mainnav button.active{background:var(--terracotta); color:white; box-shadow:0 4px 12px rgba(199,98,63,0.35);}
+
+  .nav-right{display:flex; align-items:center; gap:10px;}
+  .admin-toggle{
+    font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:100px;
+    background:var(--ink); color:var(--cream); display:flex; align-items:center; gap:6px;
+  }
+  .admin-toggle:hover{background:#453a30;}
+
+  .login-btn{
+    font-size:12.5px; font-weight:700; padding:9px 18px; border-radius:100px;
+    background:var(--terracotta); color:white; box-shadow:0 4px 12px rgba(199,98,63,0.3);
+  }
+  .login-btn:hover{background:var(--terracotta-dark);}
+  .user-chip{
+    display:flex; align-items:center; gap:8px; padding:6px 8px 6px 8px; border-radius:100px;
+    background:var(--cream-2); position:relative; cursor:pointer;
+  }
+  .user-chip .avatar{
+    width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg, var(--terracotta), var(--amber));
+    color:white; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;
+  }
+  .user-chip .uname{font-size:12.5px; font-weight:700; color:var(--ink); padding-right:4px;}
+  .user-menu{
+    display:none; position:absolute; top:calc(100% + 8px); right:0; background:var(--white); border:1px solid var(--line);
+    border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); min-width:170px; padding:6px; z-index:60;
+  }
+  .user-menu.open{display:block;}
+  .user-menu button{
+    width:100%; text-align:left; padding:9px 12px; border-radius:8px; font-size:13px; font-weight:600; color:var(--ink-soft);
+  }
+  .user-menu button:hover{background:var(--cream-2); color:var(--ink);}
+
+  /* ===== Auth overlay ===== */
+  .auth-overlay{
+    display:none; position:fixed; inset:0; z-index:200; background:rgba(46,36,29,0.55); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center; padding:20px;
+  }
+  .auth-overlay.open{display:flex; animation:fadeIn .2s ease;}
+  .auth-card{
+    background:var(--white); border-radius:var(--radius-lg); padding:32px; width:100%; max-width:380px;
+    box-shadow:var(--shadow-lg); position:relative;
+  }
+  .auth-close{position:absolute; top:16px; right:16px; width:28px; height:28px; border-radius:50%; background:var(--cream-2); font-size:14px;}
+  .auth-close:hover{background:var(--line);}
+  .auth-brand{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
+  .auth-card h3{font-size:20px; margin-bottom:4px;}
+  .auth-card p{font-size:13px; margin-bottom:16px;}
+  .demo-note{color:var(--terracotta); font-weight:700;}
+  .text-input{
+    width:100%; padding:12px 14px; border-radius:var(--radius-sm); border:1.5px solid var(--line);
+    font-size:14px; font-weight:600; color:var(--ink); margin-bottom:14px; background:var(--white);
+  }
+  .text-input:focus{outline:none; border-color:var(--terracotta);}
+  .code-input{letter-spacing:0.4em; text-align:center; font-size:20px;}
+  .auth-btn{
+    width:100%; padding:13px; background:var(--terracotta); color:white; border-radius:var(--radius-md);
+    font-weight:700; font-size:14.5px; box-shadow:0 8px 20px rgba(199,98,63,0.28);
+  }
+  .auth-btn:hover{background:var(--terracotta-dark);}
+  .auth-skip{width:100%; text-align:center; margin-top:14px; font-size:12.5px; color:var(--ink-soft); font-weight:600;}
+  .auth-skip:hover{color:var(--ink);}
+  .auth-back{width:100%; text-align:center; margin-top:12px; font-size:12.5px; color:var(--ink-soft); font-weight:600;}
+  .auth-back:hover{color:var(--ink);}
+  .auth-error{color:var(--terracotta); font-size:12.5px; font-weight:600; margin:-8px 0 12px; display:none;}
+
+  .login-prompt{text-align:center; padding:28px 20px; background:var(--cream-2); border-radius:var(--radius-md);}
+  .login-prompt p{margin-bottom:14px; font-size:13px;}
+
+  .mobile-nav-toggle{display:none;}
+
+  /* ===== Page container ===== */
+  .page{display:none; max-width:1200px; margin:0 auto; padding:40px 28px 90px;}
+  .page.active{display:block; animation:fadeIn .35s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .page-head{margin-bottom:32px;}
+  .eyebrow{
+    display:inline-block; font-size:12px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--terracotta); background:rgba(199,98,63,0.1); padding:5px 12px; border-radius:100px; margin-bottom:12px;
+  }
+  .page-head h1{font-size:34px;}
+  .page-head .lede{font-size:15.5px; max-width:600px;}
+
+  /* ===== Space grid ===== */
+  .space-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:22px;}
+  .space-card{
+    background:var(--white); border-radius:var(--radius-lg); overflow:hidden; border:1px solid var(--line);
+    box-shadow:var(--shadow); transition:transform .22s ease, box-shadow .22s ease; cursor:pointer;
+  }
+  .space-card:hover{transform:translateY(-4px); box-shadow:var(--shadow-lg);}
+  .space-card .thumb{
+    height:170px; position:relative; overflow:hidden;
+    background:linear-gradient(135deg, var(--cream-2), var(--line));
+  }
+  .space-card .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .space-card .thumb .tag{
+    position:absolute; top:12px; left:12px; background:rgba(46,36,29,0.75); color:white; font-size:11px;
+    font-weight:700; letter-spacing:0.06em; padding:5px 10px; border-radius:100px; text-transform:uppercase;
+  }
+  .space-card .body{padding:18px 20px 20px;}
+  .space-card h3{font-size:19px; margin-bottom:4px;}
+  .space-card .meta{display:flex; justify-content:space-between; align-items:center; margin-top:12px;}
+  .price-tag{font-weight:700; color:var(--terracotta); font-size:15px;}
+  .price-tag span{font-weight:400; color:var(--ink-soft); font-size:12.5px;}
+  .arrow-chip{
+    width:32px; height:32px; border-radius:50%; background:var(--cream-2); display:flex; align-items:center;
+    justify-content:center; font-size:15px; transition:background .18s ease;
+  }
+  .space-card:hover .arrow-chip{background:var(--terracotta); color:white;}
+
+  /* ===== Space detail ===== */
+  .detail-view{display:none;}
+  .detail-view.active{display:block; animation:fadeIn .3s ease;}
+  .back-link{
+    display:inline-flex; align-items:center; gap:6px; font-size:13.5px; font-weight:600; color:var(--ink-soft);
+    margin-bottom:20px; padding:8px 14px; background:var(--white); border:1px solid var(--line); border-radius:100px;
+  }
+  .back-link:hover{color:var(--ink); border-color:var(--ink-soft);}
+  .detail-grid{display:grid; grid-template-columns:1.15fr 0.85fr; gap:36px;}
+  .photo-main{
+    height:340px; border-radius:var(--radius-lg); overflow:hidden; margin-bottom:12px;
+    background:var(--cream-2);
+  }
+  .photo-main img{width:100%; height:100%; object-fit:cover;}
+  .photo-strip{display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+  .photo-strip .thumb-s{height:78px; border-radius:var(--radius-sm); overflow:hidden; background:var(--cream-2); cursor:pointer; border:2px solid transparent;}
+  .photo-strip .thumb-s.sel{border-color:var(--terracotta);}
+  .photo-strip img{width:100%; height:100%; object-fit:cover;}
+
+  .detail-panel{background:var(--white); border:1px solid var(--line); border-radius:var(--radius-lg); padding:26px; height:fit-content; box-shadow:var(--shadow);}
+  .detail-panel .eyebrow{margin-bottom:10px;}
+  .detail-panel h2{font-size:26px;}
+  .stat-row{display:flex; gap:22px; margin:16px 0; padding:16px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .stat{display:flex; flex-direction:column; gap:2px;}
+  .stat .num{font-weight:700; font-size:17px; color:var(--ink);}
+  .stat .lbl{font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.05em;}
+  .amenities{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0;}
+  .amenity-pill{font-size:12.5px; font-weight:600; background:var(--cream-2); color:var(--ink-soft); padding:6px 12px; border-radius:100px;}
+  .price-block{display:flex; align-items:baseline; gap:6px; margin:18px 0 6px;}
+  .price-block .amt{font-size:30px; font-weight:700; font-family:'Georgia',serif; color:var(--terracotta);}
+  .price-block .unit{font-size:13.5px; color:var(--ink-soft);}
+  .book-btn{
+    width:100%; padding:15px; background:var(--terracotta); color:white; border-radius:var(--radius-md);
+    font-size:15.5px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow:0 8px 20px rgba(199,98,63,0.32); transition:background .18s ease, transform .18s ease;
+  }
+  .book-btn:hover{background:var(--terracotta-dark); transform:translateY(-1px);}
+
+  /* ===== Calendar page ===== */
+  .cal-layout{display:grid; grid-template-columns:1.3fr 1fr; gap:28px; align-items:start;}
+  .card{background:var(--white); border:1px solid var(--line); border-radius:var(--radius-lg); padding:24px; box-shadow:var(--shadow);}
+  .card h3{font-size:16.5px; display:flex; align-items:center; justify-content:space-between;}
+  .space-select{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 22px;}
+  .space-chip{
+    font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:100px; border:1.5px solid var(--line);
+    color:var(--ink-soft); background:var(--white);
+  }
+  .space-chip.sel{background:var(--ink); color:var(--cream); border-color:var(--ink);}
+
+  .month-nav{display:flex; align-items:center; gap:10px;}
+  .month-nav button{width:30px; height:30px; border-radius:50%; background:var(--cream-2); font-size:15px;}
+  .month-nav button:hover{background:var(--line);}
+  .month-label{font-weight:700; font-size:14.5px; min-width:130px; text-align:center;}
+
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:16px;}
+  .cal-dow{font-size:11px; font-weight:700; text-align:center; color:var(--ink-soft); text-transform:uppercase; padding-bottom:6px;}
+  .cal-day{
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:10px;
+    font-size:13.5px; font-weight:600; color:var(--ink); background:var(--cream-2); position:relative;
+  }
+  .cal-day.empty{background:transparent;}
+  .cal-day.past{background:transparent; color:#D8CDBE; cursor:not-allowed;}
+  .cal-day.avail{background:var(--white); border:1.5px solid var(--line); cursor:pointer; transition:all .15s ease;}
+  .cal-day.avail:hover{border-color:var(--terracotta); color:var(--terracotta);}
+  .cal-day.limited{background:#FBF0E1; border:1.5px solid var(--amber); cursor:pointer;}
+  .cal-day.limited::after{content:''; position:absolute; bottom:5px; width:4px; height:4px; border-radius:50%; background:var(--amber);}
+  .cal-day.sel{background:var(--terracotta); color:white; border-color:var(--terracotta); box-shadow:0 4px 12px rgba(199,98,63,0.4);}
+  .legend{display:flex; gap:16px; margin-top:16px; font-size:11.5px; color:var(--ink-soft);}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+
+  .booking-summary h3{margin-bottom:16px;}
+  .field-label{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin:16px 0 8px;}
+  .field-label:first-of-type{margin-top:0;}
+  .select-input{
+    width:100%; padding:12px 14px; border-radius:var(--radius-sm); border:1.5px solid var(--line);
+    background:var(--white) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path d="M1 1L6 6L11 1" stroke="%236B5D51" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 14px center;
+    font-size:13.5px; font-weight:600; color:var(--ink); appearance:none; -webkit-appearance:none;
+    cursor:pointer; transition:border-color .15s ease;
+  }
+  .select-input:hover, .select-input:focus{border-color:var(--terracotta); outline:none;}
+  .select-input:disabled{color:#B8AB9B; cursor:not-allowed; background-color:var(--cream-2);}
+  .duration-hint{font-size:11.5px; color:var(--ink-soft); margin:6px 2px 0;}
+
+  .summary-box{margin-top:20px; padding-top:18px; border-top:1.5px dashed var(--line);}
+  .summary-line{display:flex; justify-content:space-between; font-size:13.5px; color:var(--ink-soft); margin-bottom:6px;}
+  .summary-line.total{font-size:17px; font-weight:700; color:var(--ink); margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+  .summary-line.total span:last-child{color:var(--terracotta);}
+
+  .pay-panel{display:none; text-align:center; margin-top:20px; padding:20px; background:var(--cream-2); border-radius:var(--radius-md);}
+  .pay-panel.show{display:block; animation:fadeIn .3s ease;}
+  .qr-box{
+    width:150px; height:150px; margin:12px auto; background:white; border-radius:12px; padding:10px;
+    box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center;
+  }
+  .qr-box img{width:100%; height:100%;}
+  .pay-ref{font-size:12px; color:var(--ink-soft); margin-top:6px;}
+  .confirm-btn{
+    margin-top:14px; width:100%; padding:13px; background:var(--sage); color:white; border-radius:var(--radius-md);
+    font-weight:700; font-size:14.5px;
+  }
+  .confirm-btn:hover{opacity:.9;}
+
+  /* ===== Reservation page ===== */
+  .res-list{display:flex; flex-direction:column; gap:14px;}
+  .res-card{
+    background:var(--white); border:1px solid var(--line); border-radius:var(--radius-md); padding:20px 22px;
+    display:flex; align-items:center; gap:20px; box-shadow:var(--shadow);
+  }
+  .res-date{
+    width:64px; height:64px; border-radius:14px; background:var(--cream-2); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .res-date .d{font-size:20px; font-weight:700; font-family:'Georgia',serif; color:var(--terracotta); line-height:1;}
+  .res-date .m{font-size:10.5px; font-weight:700; text-transform:uppercase; color:var(--ink-soft); letter-spacing:0.05em;}
+  .res-info{flex:1;}
+  .res-info h4{font-size:16px; margin-bottom:3px;}
+  .res-info .sub{font-size:13px; color:var(--ink-soft); display:flex; gap:14px; flex-wrap:wrap;}
+  .status-badge{font-size:11.5px; font-weight:700; padding:6px 13px; border-radius:100px; text-transform:uppercase; letter-spacing:0.03em;}
+  .status-badge.confirmed{background:rgba(138,154,91,0.15); color:var(--sage);}
+  .status-badge.pending{background:rgba(227,168,87,0.2); color:#A8792F;}
+  .res-price{font-weight:700; color:var(--ink); font-size:15px; min-width:70px; text-align:right;}
+  .empty-state{text-align:center; padding:60px 20px; color:var(--ink-soft);}
+
+  /* ===== Contacts page ===== */
+  .contact-grid{display:grid; grid-template-columns:1fr 1fr; gap:28px;}
+  .map-block{height:280px; border-radius:var(--radius-lg); background:linear-gradient(135deg,#DCE3C8,#EFE3C8); margin-bottom:20px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:13px; font-weight:600;}
+  .contact-row{display:flex; align-items:flex-start; gap:14px; padding:16px 0; border-bottom:1px solid var(--line);}
+  .contact-row:last-child{border-bottom:none;}
+  .c-icon{width:40px; height:40px; border-radius:10px; background:var(--cream-2); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;}
+  .contact-row h4{font-size:14px; margin-bottom:2px;}
+  .contact-row p{font-size:13.5px; margin:0;}
+  .qr-contact{text-align:center; padding:26px;}
+
+  /* ===== Admin ===== */
+  .admin-shell{display:none;}
+  .admin-shell.active{display:block;}
+  .admin-header{
+    background:var(--ink); color:var(--cream); padding:0;
+  }
+  .admin-header-inner{max-width:1300px; margin:0 auto; padding:16px 28px; display:flex; align-items:center; justify-content:space-between;}
+  .admin-brand{display:flex; align-items:center; gap:10px; font-weight:700; font-family:'Georgia',serif; font-size:17px;}
+  .admin-exit{font-size:12.5px; font-weight:600; padding:8px 15px; background:rgba(255,255,255,0.1); border-radius:100px; color:var(--cream);}
+  .admin-exit:hover{background:rgba(255,255,255,0.18);}
+  .admin-body{max-width:1300px; margin:0 auto; padding:28px; display:grid; grid-template-columns:200px 1fr; gap:26px;}
+  .admin-nav{display:flex; flex-direction:column; gap:4px;}
+  .admin-nav button{
+    text-align:left; padding:11px 14px; border-radius:var(--radius-sm); font-size:13.5px; font-weight:600;
+    color:var(--ink-soft); background:transparent;
+  }
+  .admin-nav button:hover{background:var(--cream-2);}
+  .admin-nav button.active{background:var(--white); color:var(--ink); box-shadow:var(--shadow);}
+
+  .stat-cards{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;}
+  .stat-card{background:var(--white); border:1px solid var(--line); border-radius:var(--radius-md); padding:18px 20px; box-shadow:var(--shadow);}
+  .stat-card .num{font-size:26px; font-weight:700; font-family:'Georgia',serif; color:var(--ink);}
+  .stat-card .lbl{font-size:12px; color:var(--ink-soft); font-weight:600; margin-top:2px;}
+  .stat-card .delta{font-size:11.5px; color:var(--sage); font-weight:700; margin-top:4px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th{text-align:left; padding:11px 14px; color:var(--ink-soft); font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1.5px solid var(--line);}
+  td{padding:13px 14px; border-bottom:1px solid var(--line); color:var(--ink);}
+  tr:last-child td{border-bottom:none;}
+  .mini-badge{font-size:11px; font-weight:700; padding:4px 10px; border-radius:100px;}
+  .mini-badge.confirmed{background:rgba(138,154,91,0.15); color:var(--sage);}
+  .mini-badge.pending{background:rgba(227,168,87,0.2); color:#A8792F;}
+  .mini-badge.cancelled{background:rgba(199,98,63,0.12); color:var(--terracotta);}
+  .row-actions{display:flex; gap:6px;}
+  .icon-btn{width:28px; height:28px; border-radius:8px; background:var(--cream-2); display:flex; align-items:center; justify-content:center; font-size:12.5px;}
+  .icon-btn:hover{background:var(--line);}
+
+  .admin-panel{display:none;}
+  .admin-panel.active{display:block; animation:fadeIn .3s ease;}
+  .panel-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;}
+  .panel-head h2{font-size:22px;}
+  .add-btn{padding:10px 18px; background:var(--terracotta); color:white; border-radius:var(--radius-sm); font-weight:700; font-size:13px;}
+  .add-btn:hover{background:var(--terracotta-dark);}
+
+  .space-manage-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  .manage-card{background:var(--white); border:1px solid var(--line); border-radius:var(--radius-md); padding:16px; box-shadow:var(--shadow);}
+  .manage-card .top-row{display:flex; justify-content:space-between; align-items:flex-start;}
+  .manage-card h4{font-size:15px; margin-bottom:2px;}
+  .manage-card .price{color:var(--terracotta); font-weight:700; font-size:14px; margin-top:8px;}
+  .toggle-pill{font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:100px; background:rgba(138,154,91,0.15); color:var(--sage);}
+
+  .cal-mini-note{
+    background:var(--cream-2); border-radius:var(--radius-md); padding:16px 18px; font-size:13px; color:var(--ink-soft); margin-bottom:18px;
+    display:flex; gap:10px; align-items:flex-start;
+  }
+
+  footer{text-align:center; padding:30px; font-size:12px; color:var(--ink-soft); border-top:1px solid var(--line);}
+
+  @media (max-width:900px){
+    .space-grid{grid-template-columns:repeat(2,1fr);}
+    .detail-grid, .cal-layout, .contact-grid{grid-template-columns:1fr;}
+    .stat-cards{grid-template-columns:repeat(2,1fr);}
+    .admin-body{grid-template-columns:1fr;}
+    nav.mainnav{display:none;}
+  }
+  @media (max-width:560px){
+    .space-grid{grid-template-columns:1fr;}
+    .stat-cards{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ USER-FACING SITE ============ -->
+<div id="siteShell">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">FWS</div>
+        <div>
+          <div class="brand-name">FOURWALLS.STUDIO</div>
+          <div class="brand-sub">Space Booking</div>
+        </div>
+      </div>
+      <nav class="mainnav" id="mainNav">
+        <button data-page="space" class="active">Space</button>
+        <button data-page="calendar">Calendar</button>
+        <button data-page="reservation">Reservation</button>
+        <button data-page="contacts">Contacts</button>
+      </nav>
+      <div class="nav-right" id="navRight">
+        <button class="login-btn" id="navLoginBtn">Log In</button>
+        <button class="admin-toggle" id="openAdmin">⚙ Admin</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== AUTH OVERLAY (passwordless OTP login) ===== -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-card">
+      <button class="auth-close" id="authCloseBtn">✕</button>
+
+      <div id="authStepContact">
+        <div class="auth-brand"><div class="brand-mark">FWS</div><div class="brand-name" style="font-size:16px;">FOURWALLS.STUDIO</div></div>
+        <h3>Log in to book</h3>
+        <p id="authContextMsg">Enter your email and we'll send you a one-time code — no password needed.</p>
+        <div class="field-label" style="margin-top:0;">Email Address</div>
+        <input type="email" id="authContactInput" class="text-input" placeholder="you@email.com">
+        <div class="auth-error" id="authContactError">Please enter a valid email address.</div>
+        <button class="auth-btn" id="sendCodeBtn">Send Code</button>
+        <button class="auth-skip" id="authSkipBtn">Continue browsing without logging in →</button>
+      </div>
+
+      <div id="authStepCode" style="display:none;">
+        <div class="auth-brand"><div class="brand-mark">FWS</div><div class="brand-name" style="font-size:16px;">FOURWALLS.STUDIO</div></div>
+        <h3>Enter your code</h3>
+        <p>We sent a login code to <strong id="authContactEcho"></strong>. Check your inbox (and spam folder).</p>
+        <div class="field-label" style="margin-top:0;">Verification code</div>
+        <input type="text" id="authCodeInput" class="text-input code-input" inputmode="numeric" maxlength="10" placeholder="Enter the code from your email">
+        <div class="auth-error" id="authCodeError">That code didn't match — double check the email and try again.</div>
+        <button class="auth-btn" id="verifyCodeBtn">Verify &amp; Continue</button>
+        <button class="auth-back" id="authBackBtn">← Use a different email</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SPACE PAGE ===== -->
+  <div class="page active" id="page-space">
+    <div id="spaceListView">
+      <div class="page-head">
+        <span class="eyebrow">Our Layouts</span>
+        <h1>Find the right space for your session</h1>
+        <p class="lede">Six configurable layouts, each fitted out for a different kind of work. Tap a layout to see photos, what's included, and pricing.</p>
+      </div>
+      <div class="space-grid" id="spaceGrid"></div>
+    </div>
+
+    <div class="detail-view" id="spaceDetailView">
+      <button class="back-link" id="backToSpaces">← Back to all spaces</button>
+      <div class="detail-grid">
+        <div>
+          <div class="photo-main"><img id="mainPhoto" src="" alt=""></div>
+          <div class="photo-strip" id="photoStrip"></div>
+        </div>
+        <div class="detail-panel">
+          <span class="eyebrow" id="detailTag">DANCE</span>
+          <h2 id="detailName">Dance Studio</h2>
+          <p id="detailDesc">Description goes here.</p>
+          <div class="stat-row" id="detailStats"></div>
+          <div class="amenities" id="detailAmenities"></div>
+          <div class="price-block"><span class="amt" id="detailPrice">$60</span><span class="unit">/ hour, packages available</span></div>
+          <button class="book-btn" id="bookItBtn">Book It →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CALENDAR PAGE ===== -->
+  <div class="page" id="page-calendar">
+    <div class="page-head">
+      <span class="eyebrow">Calendar</span>
+      <h1>Book your date &amp; time</h1>
+      <p class="lede">Availability shown up to 6 months in advance. Select a space, pick a date, choose your time and package.</p>
+    </div>
+    <div class="cal-layout">
+      <div class="card">
+        <h3>
+          <span id="calSpaceLabel">Select a date</span>
+          <div class="month-nav">
+            <button id="prevMonth">‹</button>
+            <span class="month-label" id="monthLabel">July 2026</span>
+            <button id="nextMonth">›</button>
+          </div>
+        </h3>
+        <div class="space-select" id="spaceChips"></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--white); border:1.5px solid var(--line);"></i>Available</span>
+          <span><i class="dot" style="background:var(--amber);"></i>Limited slots</span>
+          <span><i class="dot" style="background:var(--terracotta);"></i>Selected</span>
+        </div>
+      </div>
+
+      <div class="card booking-summary">
+        <h3>Booking Details</h3>
+        <div class="field-label">Start Time</div>
+        <select class="select-input" id="timeSelect">
+          <option value="">Select a start time…</option>
+        </select>
+
+        <div class="field-label">Duration</div>
+        <select class="select-input" id="durationSelect">
+          <option value="">Select duration…</option>
+        </select>
+        <p class="duration-hint" id="durationHint">Minimum booking 2 hours, maximum 24 hours.</p>
+
+        <div class="summary-box">
+          <div class="summary-line"><span id="sumSpace">Space</span><span id="sumDate">—</span></div>
+          <div class="summary-line"><span>Time</span><span id="sumTime">—</span></div>
+          <div class="summary-line"><span>Duration</span><span id="sumDuration">—</span></div>
+          <div class="summary-line"><span>Rate</span><span id="sumRate">—</span></div>
+          <div class="summary-line" id="sumDiscountRow" style="display:none;"><span id="sumDiscountLabel">Discount</span><span id="sumDiscountAmt" style="color:var(--sage); font-weight:700;">—</span></div>
+          <div class="summary-line total"><span>Total</span><span id="sumTotal">$0</span></div>
+        </div>
+
+        <div class="login-prompt" id="calLoginPrompt" style="display:none;">
+          <p>You're almost there — log in with a quick one-time code to see your total confirmed and pay.</p>
+          <button class="auth-btn" id="calLoginBtn" style="width:auto; padding:11px 22px;">Log In to Continue</button>
+        </div>
+
+        <div class="pay-panel" id="payPanel">
+          <div class="field-label" style="margin:0;">Scan to Pay</div>
+          <div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=FourwallsStudio-Payment-Demo" alt="Payment QR code"></div>
+          <div class="pay-ref">Ref: FWS-<span id="payRef">00000</span> · PayNow / Bank Transfer</div>
+          <button class="confirm-btn" id="confirmBtn">I've Made Payment</button>
+        </div>
+        <div id="genQrArea"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RESERVATION PAGE ===== -->
+  <div class="page" id="page-reservation">
+    <div class="page-head">
+      <span class="eyebrow">My Bookings</span>
+      <h1>Upcoming reservations</h1>
+      <p class="lede">All your confirmed and pending studio bookings, in one place.</p>
+    </div>
+    <div class="login-prompt" id="resLoginPrompt" style="display:none;">
+      <p>Log in with your email to see your upcoming reservations.</p>
+      <button class="auth-btn" id="resLoginBtn" style="width:auto; padding:11px 22px;">Log In</button>
+    </div>
+    <div class="res-list" id="resList"></div>
+  </div>
+
+  <!-- ===== CONTACTS PAGE ===== -->
+  <div class="page" id="page-contacts">
+    <div class="page-head">
+      <span class="eyebrow">Get in Touch</span>
+      <h1>Visit or reach out to FOURWALLS.STUDIO</h1>
+      <p class="lede">A warm, natural-light studio in the heart of the arts district — built for movement, sound, and story.</p>
+    </div>
+    <div class="contact-grid">
+      <div>
+        <div class="map-block">📍 Map preview — 21 Woodland Close, #06-34</div>
+        <p>FOURWALLS.STUDIO is a 2,400 sq ft creative space split across dance, podcast, event, classroom, photography and videography configurations. Originally a 1960s shophouse warehouse, we've kept the exposed beams and polished concrete while adding professional-grade sound treatment, lighting rigs, and a sprung dance floor. Our mission is to give independent creators and small teams access to studio-grade space without a studio-grade price tag.</p>
+      </div>
+      <div class="card">
+        <div class="contact-row">
+          <div class="c-icon">📍</div>
+          <div><h4>Location</h4><p>21 Woodland Close, #06-34, Singapore 737854</p></div>
+        </div>
+        <div class="contact-row">
+          <div class="c-icon">✉️</div>
+          <div><h4>Email Enquiries</h4><p>hello@mightyfinebros.sg</p></div>
+        </div>
+        <div class="contact-row">
+          <div class="c-icon">📞</div>
+          <div><h4>Contact Number</h4><p>+65 8923 9653 (WhatsApp preferred)</p></div>
+        </div>
+        <div class="contact-row">
+          <div class="c-icon">🕐</div>
+          <div><h4>Opening Hours</h4><p>24 Hours</p></div>
+        </div>
+        <div class="qr-contact">
+          <div class="field-label" style="margin:0 0 8px;">Payment QR</div>
+          <div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=FourwallsStudio-Payment-Demo" alt="Payment QR code"></div>
+          <p style="margin-top:8px; font-size:12px;">Scan for PayNow / bank transfer</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>© 2026 FOURWALLS.STUDIO · Sample prototype built with Claude — not a live booking system</footer>
+</div>
+
+<!-- ============ ADMIN DASHBOARD ============ -->
+<div class="admin-shell" id="adminShell">
+  <div class="admin-header">
+    <div class="admin-header-inner">
+      <div class="admin-brand">🛠 FOURWALLS.STUDIO — Admin</div>
+      <button class="admin-exit" id="closeAdmin">← Exit to site</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <div class="admin-nav">
+      <button data-panel="overview" class="active">Overview</button>
+      <button data-panel="bookings">Bookings</button>
+      <button data-panel="spaces">Spaces &amp; Packages</button>
+      <button data-panel="calendar">Calendar / Blackouts</button>
+      <button data-panel="customers">Customers</button>
+    </div>
+
+    <div>
+      <!-- Overview -->
+      <div class="admin-panel active" id="panel-overview">
+        <div class="panel-head"><h2>Overview</h2></div>
+        <div class="stat-cards">
+          <div class="stat-card"><div class="num">18</div><div class="lbl">Bookings this month</div><div class="delta">↑ 12% vs last month</div></div>
+          <div class="stat-card"><div class="num">$4,260</div><div class="lbl">Revenue this month</div><div class="delta">↑ 8%</div></div>
+          <div class="stat-card"><div class="num">3</div><div class="lbl">Pending payment</div><div class="delta" style="color:#A8792F;">Needs review</div></div>
+          <div class="stat-card"><div class="num">72%</div><div class="lbl">Avg. space utilization</div><div class="delta">↑ 5%</div></div>
+        </div>
+        <div class="cal-mini-note">📌 This overview would normally pull live totals from the Calendar and Reservation data — bookings made by users on the Space→Calendar flow appear here automatically for staff to confirm.</div>
+        <h3 style="margin-bottom:12px;">Recent bookings</h3>
+        <table id="overviewTable"></table>
+      </div>
+
+      <!-- Bookings -->
+      <div class="admin-panel" id="panel-bookings">
+        <div class="panel-head"><h2>All Bookings</h2><button class="add-btn">+ New Manual Booking</button></div>
+        <table id="bookingsTable"></table>
+      </div>
+
+      <!-- Spaces & Packages -->
+      <div class="admin-panel" id="panel-spaces">
+        <div class="panel-head"><h2>Spaces &amp; Packages</h2><button class="add-btn">+ Add Space</button></div>
+        <p style="margin-bottom:16px;">Edit the layouts, photos, descriptions and pricing shown on the public Space page from here.</p>
+        <div class="space-manage-grid" id="spaceManageGrid"></div>
+      </div>
+
+      <!-- Calendar / Blackouts -->
+      <div class="admin-panel" id="panel-calendar">
+        <div class="panel-head"><h2>Calendar &amp; Blackout Dates</h2></div>
+        <p style="margin-bottom:16px;">Control which dates/times are open for booking on the public Calendar page (up to 6 months ahead), and block out dates for maintenance, private events, or holidays.</p>
+        <div class="cal-mini-note">🗓 In the full build, this panel reuses the same calendar component as the public Calendar page, with an added "Block this date" / "Block this slot" action per cell, plus bulk controls (e.g. "close every Monday").</div>
+        <table>
+          <tr><th>Date</th><th>Space</th><th>Reason</th><th></th></tr>
+          <tr><td>Aug 3, 2026</td><td>All spaces</td><td>Public holiday</td><td class="row-actions"><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td></tr>
+          <tr><td>Aug 14, 2026</td><td>Photography Studio</td><td>Equipment maintenance</td><td class="row-actions"><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td></tr>
+          <tr><td>Sep 1, 2026</td><td>Event Space</td><td>Private buyout</td><td class="row-actions"><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td></tr>
+        </table>
+      </div>
+
+      <!-- Customers -->
+      <div class="admin-panel" id="panel-customers">
+        <div class="panel-head"><h2>Customers</h2></div>
+        <table id="customersTable"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Real backend: Supabase (database + email OTP auth). See SUPABASE_URL / SUPABASE_ANON_KEY below. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/* ===================== SPACE DATA (still local — see note in deployment guide about moving this to the `spaces` table) ===================== */
+const SPACES = [
+  {
+    id:'dance', tag:'DANCE', name:'Dance Studio', price:60, unit:'hr',
+    desc:'A sprung-floor studio with wall-to-wall mirrors and a professional sound system — built for rehearsal, choreography sessions, and dance classes of any style.',
+    photos:[
+      'https://picsum.photos/seed/dance1/800/600','https://picsum.photos/seed/dance2/800/600',
+      'https://picsum.photos/seed/dance3/800/600','https://picsum.photos/seed/dance4/800/600'
+    ],
+    stats:[['800','sq ft'],['20','max capacity'],['4.5m','ceiling height']],
+    amenities:['Sprung floor','Wall mirrors','Bluetooth sound system','Changing room access','Water dispenser'],
+    packages:[
+      {name:'Solo Practice', sub:'1 hour, up to 2 people', price:60},
+      {name:'Group Rehearsal', sub:'3 hours, up to 12 people', price:150},
+      {name:'Class / Workshop', sub:'Half day (4 hrs), up to 20', price:220},
+    ]
+  },
+  {
+    id:'podcast', tag:'PODCAST', name:'Podcast Studio', price:40, unit:'hr',
+    desc:'A fully soundproofed booth with a 3-mic setup, acoustic paneling, and a simple recording desk — ideal for interviews, voiceover work, and remote calls.',
+    photos:[
+      'https://picsum.photos/seed/pod1/800/600','https://picsum.photos/seed/pod2/800/600',
+      'https://picsum.photos/seed/pod3/800/600','https://picsum.photos/seed/pod4/800/600'
+    ],
+    stats:[['180','sq ft'],['4','max guests'],['3','mic setup']],
+    amenities:['3x condenser mics','Acoustic treatment','Recording desk & monitors','Wifi','Basic lighting'],
+    packages:[
+      {name:'Quick Record', sub:'1 hour, up to 2 guests', price:40},
+      {name:'Full Episode', sub:'3 hours, up to 4 guests', price:105},
+      {name:'Half Day Block', sub:'4 hours, unlimited guests', price:140},
+    ]
+  },
+  {
+    id:'event', tag:'EVENT', name:'Event Space', price:120, unit:'hr',
+    desc:'An open, flexible floor plan that seats up to 80 guests — perfect for launches, pop-ups, workshops, and private celebrations.',
+    photos:[
+      'https://picsum.photos/seed/event1/800/600','https://picsum.photos/seed/event2/800/600',
+      'https://picsum.photos/seed/event3/800/600','https://picsum.photos/seed/event4/800/600'
+    ],
+    stats:[['1,600','sq ft'],['80','max capacity'],['6','tables incl.']],
+    amenities:['PA system','Movable tables & chairs','Kitchenette access','Street-level loading bay','On-site parking'],
+    packages:[
+      {name:'Evening Slot', sub:'3 hours, up to 40 guests', price:340},
+      {name:'Full Day Buyout', sub:'8 hours, up to 80 guests', price:850},
+      {name:'Weekend Package', sub:'2 days, up to 80 guests', price:1500},
+    ]
+  },
+  {
+    id:'class', tag:'CLASS', name:'Class Room', price:50, unit:'hr',
+    desc:'A bright, flexible seminar-style room fitted with a projector and modular seating — suited for workshops, talks, and small group classes.',
+    photos:[
+      'https://picsum.photos/seed/class1/800/600','https://picsum.photos/seed/class2/800/600',
+      'https://picsum.photos/seed/class3/800/600','https://picsum.photos/seed/class4/800/600'
+    ],
+    stats:[['500','sq ft'],['30','max capacity'],['1','projector incl.']],
+    amenities:['Projector & screen','Modular tables','Whiteboard','Fast wifi','Coffee station'],
+    packages:[
+      {name:'Single Session', sub:'2 hours, up to 15', price:90},
+      {name:'Full Day Workshop', sub:'6 hours, up to 30', price:260},
+      {name:'Weekly Course (4wk)', sub:'2 hrs × 4 sessions', price:320},
+    ]
+  },
+  {
+    id:'photo', tag:'PHOTOGRAPHY', name:'Photography Studio', price:70, unit:'hr',
+    desc:'A cyclorama-walled studio with a full lighting rig, backdrops, and props storage — built for product, portrait, and fashion shoots.',
+    photos:[
+      'https://picsum.photos/seed/photo1/800/600','https://picsum.photos/seed/photo2/800/600',
+      'https://picsum.photos/seed/photo3/800/600','https://picsum.photos/seed/photo4/800/600'
+    ],
+    stats:[['650','sq ft'],['4m','cyclorama wall'],['3','light kits']],
+    amenities:['Cyclorama wall','Studio strobes & softboxes','Backdrop rolls','Props storage','Client lounge'],
+    packages:[
+      {name:'Solo Shoot', sub:'1 hour, 1 backdrop', price:70},
+      {name:'Half Day Shoot', sub:'4 hours, all backdrops', price:250},
+      {name:'Full Day Shoot', sub:'8 hours, all equipment', price:440},
+    ]
+  },
+  {
+    id:'video', tag:'VIDEOGRAPHY', name:'Videography Studio', price:90, unit:'hr',
+    desc:'A blackout-capable studio with green screen, a 3-point lighting rig, and teleprompter setup — ready for interviews, product videos, and content shoots.',
+    photos:[
+      'https://picsum.photos/seed/vid1/800/600','https://picsum.photos/seed/vid2/800/600',
+      'https://picsum.photos/seed/vid3/800/600','https://picsum.photos/seed/vid4/800/600'
+    ],
+    stats:[['700','sq ft'],['1','green screen'],['4K','camera ready']],
+    amenities:['Green screen wall','3-point lighting kit','Teleprompter','Audio recording','Blackout curtains'],
+    packages:[
+      {name:'Content Block', sub:'2 hours, up to 3 crew', price:170},
+      {name:'Half Day Shoot', sub:'4 hours, up to 6 crew', price:320},
+      {name:'Full Day Production', sub:'8 hours, full crew', price:600},
+    ]
+  },
+];
+
+// Generates every 30-minute mark across a 24-hour day, e.g. 12:00 AM, 12:30 AM, 1:00 AM ...
+function generateTimeOptions(){
+  const opts = [];
+  for(let h=0; h<24; h++){
+    for(let m=0; m<60; m+=30){
+      const period = h < 12 ? 'AM' : 'PM';
+      let hour12 = h % 12; if(hour12===0) hour12 = 12;
+      const label = `${hour12}:${m===0?'00':m} ${period}`;
+      opts.push(label);
+    }
+  }
+  return opts;
+}
+const TIME_OPTIONS = generateTimeOptions();
+
+// Discount tiers applied to total hours booked
+const DISCOUNT_TIERS = [
+  {min:2, max:4, rate:0},
+  {min:5, max:9, rate:0.10},
+  {min:10, max:23, rate:0.20},
+  {min:24, max:24, rate:0.30},
+];
+function getDiscountRate(hours){
+  const tier = DISCOUNT_TIERS.find(t => hours >= t.min && hours <= t.max);
+  return tier ? tier.rate : 0;
+}
+
+// Each reservation is tied to a customer's email (their login identity) so it can be filtered to whoever is logged in.
+// phone is kept only as a contact-number field for staff reference in Admin — it is not used for login.
+const RESERVATIONS = [
+  {customer:'Nadia R.', phone:'+65 9123 4561', email:'nadia.r@email.com', space:'Dance Studio', date:'Jul 24, 2026', day:'24', mon:'JUL', time:'5:00 PM', duration:'5 hours', discount:'10%', price:270, status:'confirmed'},
+  {customer:'Nadia R.', phone:'+65 9123 4561', email:'nadia.r@email.com', space:'Photography Studio', date:'Aug 6, 2026', day:'06', mon:'AUG', time:'9:00 AM', duration:'10 hours', discount:'20%', price:560, status:'pending'},
+  {customer:'Marcus T.', phone:'+65 9123 4562', email:'marcus.t@email.com', space:'Podcast Studio', date:'Jul 29, 2026', day:'29', mon:'JUL', time:'1:00 PM', duration:'2 hours', discount:'—', price:80, status:'confirmed'},
+  {customer:'Elle W.', phone:'+65 9123 4563', email:'elle.w@email.com', space:'Event Space', date:'Aug 22, 2026', day:'22', mon:'AUG', time:'3:00 PM', duration:'3 hours', discount:'—', price:360, status:'confirmed'},
+];
+
+const ADMIN_BOOKINGS = [
+  {id:'#1042', customer:'Nadia R.', space:'Dance Studio', date:'Jul 24, 2026', time:'5:00 PM', duration:'5 hrs (10% off)', total:'$270', status:'confirmed'},
+  {id:'#1043', customer:'Marcus T.', space:'Podcast Studio', date:'Jul 25, 2026', time:'11:00 AM', duration:'2 hrs', total:'$80', status:'pending'},
+  {id:'#1044', customer:'Elle W.', space:'Event Space', date:'Jul 26, 2026', time:'3:00 PM', duration:'3 hrs', total:'$360', status:'confirmed'},
+  {id:'#1045', customer:'Farid K.', space:'Photography Studio', date:'Jul 29, 2026', time:'9:00 AM', duration:'10 hrs (20% off)', total:'$560', status:'pending'},
+  {id:'#1046', customer:'Chloe S.', space:'Videography Studio', date:'Jul 30, 2026', time:'1:00 PM', duration:'4 hrs', total:'$360', status:'cancelled'},
+  {id:'#1047', customer:'Aaron L.', space:'Class Room', date:'Aug 2, 2026', time:'2:00 PM', duration:'24 hrs (30% off)', total:'$840', status:'confirmed'},
+];
+
+// NOTE: CUSTOMERS is now only used by the Admin "Customers" tab for display.
+// Real customer identity comes from Supabase auth.users — see the AUTH block below.
+const CUSTOMERS = [
+  {name:'Nadia R.', phone:'+65 9123 4561', email:'nadia.r@email.com', bookings:5, spent:'$620'},
+  {name:'Marcus T.', phone:'+65 9123 4562', email:'marcus.t@email.com', bookings:2, spent:'$130'},
+  {name:'Elle W.', phone:'+65 9123 4563', email:'elle.w@email.com', bookings:8, spent:'$1,940'},
+  {name:'Farid K.', phone:'+65 9123 4564', email:'farid.k@email.com', bookings:1, spent:'$250'},
+  {name:'Chloe S.', phone:'+65 9123 4565', email:'chloe.s@email.com', bookings:3, spent:'$410'},
+];
+
+/* ===================== SUPABASE (real backend) ===================== */
+const SUPABASE_URL = 'https://nkittvupwxeqheruepvy.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_E0yaOPQk_Hrqh2KxrctLcw_xlMMU-o1';
+// Named "sb" (not "supabase") because the CDN library itself defines a global called `supabase` —
+// declaring `const supabase = ...` collides with that and throws "already been declared".
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ===================== AUTH (real passwordless email OTP via Supabase) ===================== */
+let currentUser = null;      // { name, email } once logged in
+let pendingEmail = null;     // email entered on step 1, awaiting code verification
+let authReason = null;       // 'booking' | 'reservation' | null — what to do after a successful login
+
+// Restore an existing session on page load (so a returning visitor stays logged in)
+sb.auth.getSession().then(({ data }) => {
+  if(data.session && data.session.user){
+    currentUser = { name: data.session.user.email.split('@')[0], email: data.session.user.email };
+    renderUserChip();
+    renderReservations();
+    updateSummary();
+  }
+});
+
+function openAuth(reason){
+  authReason = reason || null;
+  const msg = document.getElementById('authContextMsg');
+  if(reason === 'booking'){
+    msg.textContent = "Almost done — verify your email with a one-time code to confirm this booking.";
+  } else if(reason === 'reservation'){
+    msg.textContent = "Log in with your email to see your upcoming reservations.";
+  } else {
+    msg.textContent = "Enter your email and we'll send you a one-time code — no password needed.";
+  }
+  document.getElementById('authStepContact').style.display = 'block';
+  document.getElementById('authStepCode').style.display = 'none';
+  document.getElementById('authContactInput').value = '';
+  document.getElementById('authContactError').style.display = 'none';
+  document.getElementById('authOverlay').classList.add('open');
+}
+function closeAuth(){
+  document.getElementById('authOverlay').classList.remove('open');
+}
+document.getElementById('navLoginBtn').addEventListener('click', ()=>openAuth(null));
+document.getElementById('authCloseBtn').addEventListener('click', closeAuth);
+document.getElementById('authSkipBtn').addEventListener('click', closeAuth);
+
+document.getElementById('sendCodeBtn').addEventListener('click', async ()=>{
+  const val = document.getElementById('authContactInput').value.trim();
+  const looksValid = /\S+@\S+\.\S+/.test(val);
+  const errEl = document.getElementById('authContactError');
+  if(!looksValid){
+    errEl.textContent = 'Please enter a valid email address.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('sendCodeBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const { error } = await sb.auth.signInWithOtp({ email: val });
+  btn.disabled = false; btn.textContent = 'Send Code';
+  if(error){
+    errEl.textContent = error.message || 'Could not send code — please try again.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  pendingEmail = val;
+  document.getElementById('authContactEcho').textContent = val;
+  document.getElementById('authStepContact').style.display = 'none';
+  document.getElementById('authStepCode').style.display = 'block';
+  document.getElementById('authCodeInput').value = '';
+  document.getElementById('authCodeError').style.display = 'none';
+  document.getElementById('authCodeInput').focus();
+});
+document.getElementById('authBackBtn').addEventListener('click', ()=>{
+  document.getElementById('authStepContact').style.display = 'block';
+  document.getElementById('authStepCode').style.display = 'none';
+});
+// Strip anything but digits — handles pasted codes that carry spaces/line breaks from the email,
+// and stays a superset of whatever length Supabase is configured to send (6, 8, or otherwise).
+document.getElementById('authCodeInput').addEventListener('input', (e)=>{
+  e.target.value = e.target.value.replace(/\D/g, '');
+});
+document.getElementById('verifyCodeBtn').addEventListener('click', async ()=>{
+  const code = document.getElementById('authCodeInput').value.trim();
+  const errEl = document.getElementById('authCodeError');
+  const btn = document.getElementById('verifyCodeBtn');
+  btn.disabled = true; btn.textContent = 'Verifying…';
+  const { data, error } = await sb.auth.verifyOtp({ email: pendingEmail, token: code, type: 'email' });
+  btn.disabled = false; btn.textContent = 'Verify & Continue';
+  if(error || !data.user){
+    errEl.textContent = error ? error.message : "That code didn't match — check your email and try again.";
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  currentUser = { name: data.user.email.split('@')[0], email: data.user.email };
+  closeAuth();
+  renderUserChip();
+  renderReservations();
+  updateSummary();
+  const reason = authReason;
+  authReason = null;
+  if(reason === 'reservation') goToPage('reservation');
+});
+
+async function logout(){
+  await sb.auth.signOut();
+  currentUser = null;
+  document.getElementById('userMenu')?.classList.remove('open');
+  renderUserChip();
+  renderReservations();
+  updateSummary();
+}
+
+function renderUserChip(){
+  const navRight = document.getElementById('navRight');
+  const loginBtn = document.getElementById('navLoginBtn');
+  let chip = document.getElementById('userChip');
+  if(currentUser){
+    loginBtn.style.display = 'none';
+    if(!chip){
+      chip = document.createElement('div');
+      chip.className = 'user-chip';
+      chip.id = 'userChip';
+      navRight.insertBefore(chip, navRight.firstChild);
+    }
+    const initials = currentUser.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    chip.innerHTML = `
+      <div class="avatar">${initials || '?'}</div>
+      <span class="uname">${currentUser.name}</span>
+      <div class="user-menu" id="userMenu">
+        <button id="userMenuReservations">My Reservations</button>
+        <button id="userMenuLogout">Log Out</button>
+      </div>
+    `;
+    chip.onclick = (e)=>{ e.stopPropagation(); document.getElementById('userMenu').classList.toggle('open'); };
+    document.getElementById('userMenuReservations').onclick = (e)=>{ e.stopPropagation(); document.getElementById('userMenu').classList.remove('open'); goToPage('reservation'); };
+    document.getElementById('userMenuLogout').onclick = (e)=>{ e.stopPropagation(); logout(); };
+  } else {
+    loginBtn.style.display = 'inline-block';
+    if(chip) chip.remove();
+  }
+}
+document.addEventListener('click', ()=>{ document.getElementById('userMenu')?.classList.remove('open'); });
+document.getElementById('calLoginBtn').addEventListener('click', ()=>openAuth('booking'));
+document.getElementById('resLoginBtn').addEventListener('click', ()=>openAuth('reservation'));
+renderUserChip();
+
+/* ===================== NAV ===================== */
+const navButtons = document.querySelectorAll('#mainNav button');
+navButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    navButtons.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+btn.dataset.page).classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+});
+function goToPage(name){
+  navButtons.forEach(b=>b.classList.toggle('active', b.dataset.page===name));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ===================== SPACE PAGE ===================== */
+const spaceGrid = document.getElementById('spaceGrid');
+SPACES.forEach(s=>{
+  const card = document.createElement('div');
+  card.className = 'space-card';
+  card.innerHTML = `
+    <div class="thumb"><span class="tag">${s.tag}</span><img src="${s.photos[0]}" alt="${s.name}"></div>
+    <div class="body">
+      <h3>${s.name}</h3>
+      <p style="font-size:13px; margin-bottom:0;">${s.desc.slice(0,70)}…</p>
+      <div class="meta">
+        <div class="price-tag">$${s.price} <span>/ ${s.unit}</span></div>
+        <div class="arrow-chip">→</div>
+      </div>
+    </div>`;
+  card.addEventListener('click', ()=>openSpaceDetail(s.id));
+  spaceGrid.appendChild(card);
+});
+
+let currentSpaceId = null;
+function openSpaceDetail(id){
+  const s = SPACES.find(x=>x.id===id);
+  currentSpaceId = id;
+  document.getElementById('spaceListView').style.display = 'none';
+  document.getElementById('spaceDetailView').classList.add('active');
+  document.getElementById('detailTag').textContent = s.tag;
+  document.getElementById('detailName').textContent = s.name;
+  document.getElementById('detailDesc').textContent = s.desc;
+  document.getElementById('mainPhoto').src = s.photos[0];
+  document.getElementById('detailPrice').textContent = '$'+s.price;
+
+  document.getElementById('detailStats').innerHTML = s.stats.map(([num,lbl])=>
+    `<div class="stat"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`).join('');
+  document.getElementById('detailAmenities').innerHTML = s.amenities.map(a=>
+    `<span class="amenity-pill">${a}</span>`).join('');
+  const strip = document.getElementById('photoStrip');
+  strip.innerHTML = s.photos.map((p,i)=>
+    `<div class="thumb-s ${i===0?'sel':''}" data-i="${i}"><img src="${p}"></div>`).join('');
+  strip.querySelectorAll('.thumb-s').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      strip.querySelectorAll('.thumb-s').forEach(x=>x.classList.remove('sel'));
+      t.classList.add('sel');
+      document.getElementById('mainPhoto').src = s.photos[t.dataset.i];
+    });
+  });
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.getElementById('backToSpaces').addEventListener('click', ()=>{
+  document.getElementById('spaceListView').style.display = 'block';
+  document.getElementById('spaceDetailView').classList.remove('active');
+});
+document.getElementById('bookItBtn').addEventListener('click', ()=>{
+  goToPage('calendar');
+  selectSpaceChip(currentSpaceId);
+});
+
+/* ===================== CALENDAR PAGE ===================== */
+const spaceChipsEl = document.getElementById('spaceChips');
+SPACES.forEach(s=>{
+  const chip = document.createElement('button');
+  chip.className = 'space-chip';
+  chip.textContent = s.tag;
+  chip.dataset.id = s.id;
+  chip.addEventListener('click', ()=>selectSpaceChip(s.id));
+  spaceChipsEl.appendChild(chip);
+});
+let selectedSpace = SPACES[0].id;
+let selectedDate = null, selectedDateISO = null, selectedTime = null, selectedDuration = null;
+
+// Calendar month state (declared before first use in selectSpaceChip below)
+let today = new Date(2026,6,20); // Jul 20 2026 per session date
+let viewMonth = today.getMonth();
+let viewYear = today.getFullYear();
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function selectSpaceChip(id){
+  selectedSpace = id;
+  selectedDate = null; selectedDateISO = null; selectedTime = null; selectedDuration = null;
+  document.querySelectorAll('.space-chip').forEach(c=>c.classList.toggle('sel', c.dataset.id===id));
+  const s = SPACES.find(x=>x.id===id);
+  document.getElementById('calSpaceLabel').textContent = s.name+' — pick a date';
+  document.getElementById('timeSelect').value = '';
+  document.getElementById('durationSelect').value = '';
+  renderCalendar();
+  updateSummary();
+  document.getElementById('payPanel').classList.remove('show');
+}
+selectSpaceChip(SPACES[0].id);
+
+function renderCalendar(){
+  document.getElementById('monthLabel').textContent = monthNames[viewMonth]+' '+viewYear;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  ['S','M','T','W','T','F','S'].forEach(d=>{
+    const el = document.createElement('div'); el.className='cal-dow'; el.textContent=d; grid.appendChild(el);
+  });
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  for(let i=0;i<firstDay;i++){
+    const el=document.createElement('div'); el.className='cal-day empty'; grid.appendChild(el);
+  }
+  const maxDate = new Date(today); maxDate.setMonth(maxDate.getMonth()+6);
+  for(let d=1; d<=daysInMonth; d++){
+    const thisDate = new Date(viewYear, viewMonth, d);
+    const el = document.createElement('div');
+    el.textContent = d;
+    if(thisDate < new Date(today.getFullYear(),today.getMonth(),today.getDate()) || thisDate > maxDate){
+      el.className='cal-day past';
+    } else {
+      // pseudo-random availability based on date+space for demo consistency
+      const seed = (d*7 + selectedSpace.length*13) % 10;
+      const isLimited = seed < 2;
+      el.className = 'cal-day ' + (isLimited ? 'limited' : 'avail');
+      el.addEventListener('click', ()=>{
+        document.querySelectorAll('.cal-day').forEach(c=>c.classList.remove('sel'));
+        el.classList.add('sel');
+        selectedDate = `${monthNames[viewMonth].slice(0,3)} ${d}, ${viewYear}`;
+        selectedDateISO = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        updateSummary();
+      });
+    }
+    grid.appendChild(el);
+  }
+}
+document.getElementById('prevMonth').addEventListener('click', ()=>{
+  viewMonth--; if(viewMonth<0){viewMonth=11; viewYear--;}
+  renderCalendar();
+});
+document.getElementById('nextMonth').addEventListener('click', ()=>{
+  viewMonth++; if(viewMonth>11){viewMonth=0; viewYear++;}
+  renderCalendar();
+});
+renderCalendar();
+
+function renderTimeOptions(){
+  const sel = document.getElementById('timeSelect');
+  sel.innerHTML = '<option value="">Select a start time…</option>' +
+    TIME_OPTIONS.map(t => `<option value="${t}">${t}</option>`).join('');
+}
+renderTimeOptions();
+document.getElementById('timeSelect').addEventListener('change', (e)=>{
+  selectedTime = e.target.value || null;
+  updateSummary();
+});
+
+function renderDurationOptions(){
+  const sel = document.getElementById('durationSelect');
+  let html = '<option value="">Select duration…</option>';
+  for(let h=2; h<=24; h++){
+    const rate = getDiscountRate(h);
+    const label = h+' hour'+(h>1?'s':'') + (rate>0 ? ` (${Math.round(rate*100)}% off)` : '');
+    html += `<option value="${h}">${label}</option>`;
+  }
+  sel.innerHTML = html;
+}
+renderDurationOptions();
+document.getElementById('durationSelect').addEventListener('change', (e)=>{
+  selectedDuration = e.target.value ? parseInt(e.target.value, 10) : null;
+  updateSummary();
+});
+
+// Computes an end time label given a start time string ("9:00 AM") and a duration in hours
+function computeEndTime(startLabel, hours){
+  const idx = TIME_OPTIONS.indexOf(startLabel);
+  if(idx === -1) return '';
+  const stepsAhead = hours * 2; // 30-min steps per hour
+  const endIdx = (idx + stepsAhead) % TIME_OPTIONS.length;
+  const daysAhead = Math.floor((idx + stepsAhead) / TIME_OPTIONS.length);
+  return TIME_OPTIONS[endIdx] + (daysAhead > 0 ? ' (+1 day)' : '');
+}
+
+function updateSummary(){
+  const s = SPACES.find(x=>x.id===selectedSpace);
+  document.getElementById('sumSpace').textContent = s.name;
+  document.getElementById('sumDate').textContent = selectedDate || '—';
+
+  if(selectedTime && selectedDuration){
+    document.getElementById('sumTime').textContent = `${selectedTime} – ${computeEndTime(selectedTime, selectedDuration)}`;
+  } else {
+    document.getElementById('sumTime').textContent = selectedTime || '—';
+  }
+  document.getElementById('sumDuration').textContent = selectedDuration ? `${selectedDuration} hour${selectedDuration>1?'s':''}` : '—';
+  document.getElementById('sumRate').textContent = `$${s.price} / hr`;
+
+  const discountRow = document.getElementById('sumDiscountRow');
+  let total = 0;
+  if(selectedDuration){
+    const subtotal = s.price * selectedDuration;
+    const rate = getDiscountRate(selectedDuration);
+    if(rate > 0){
+      const discountAmt = subtotal * rate;
+      total = subtotal - discountAmt;
+      discountRow.style.display = 'flex';
+      document.getElementById('sumDiscountLabel').textContent = `Discount (${Math.round(rate*100)}%)`;
+      document.getElementById('sumDiscountAmt').textContent = `-$${discountAmt.toFixed(0)}`;
+    } else {
+      total = subtotal;
+      discountRow.style.display = 'none';
+    }
+  } else {
+    discountRow.style.display = 'none';
+  }
+  document.getElementById('sumTotal').textContent = '$'+total.toFixed(0);
+
+  const payPanel = document.getElementById('payPanel');
+  const loginPrompt = document.getElementById('calLoginPrompt');
+  const readyToPay = selectedDate && selectedTime && selectedDuration;
+  if(readyToPay && currentUser){
+    payPanel.classList.add('show');
+    loginPrompt.style.display = 'none';
+    document.getElementById('payRef').textContent = String(Math.floor(10000+Math.random()*89999));
+  } else if(readyToPay && !currentUser){
+    payPanel.classList.remove('show');
+    loginPrompt.style.display = 'block';
+  } else {
+    payPanel.classList.remove('show');
+    loginPrompt.style.display = 'none';
+  }
+}
+document.getElementById('confirmBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('confirmBtn');
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user){ openAuth('booking'); return; }
+
+  const s = SPACES.find(x=>x.id===selectedSpace);
+  const subtotal = s.price * selectedDuration;
+  const rate = getDiscountRate(selectedDuration);
+  const total = subtotal - (subtotal * rate);
+  const refCode = 'FWS-' + document.getElementById('payRef').textContent;
+
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  const { error } = await sb.from('bookings').insert({
+    user_id: user.id,
+    space_id: selectedSpace,
+    booking_date: selectedDateISO,
+    start_time: selectedTime,
+    duration_hours: selectedDuration,
+    subtotal: subtotal,
+    discount_rate: rate,
+    total: total,
+    payment_ref: refCode,
+    status: 'pending'
+  });
+  btn.disabled = false; btn.textContent = "I've Made Payment";
+
+  if(error){
+    alert('Something went wrong submitting your booking: ' + error.message);
+    return;
+  }
+  alert('Booking submitted! Our team will confirm it once payment is verified — check the Reservation page.');
+  renderReservations();
+  goToPage('reservation');
+});
+
+/* ===================== RESERVATION PAGE (reads real bookings from Supabase) ===================== */
+const resList = document.getElementById('resList');
+async function renderReservations(){
+  const loginPrompt = document.getElementById('resLoginPrompt');
+  if(!currentUser){
+    loginPrompt.style.display = 'block';
+    resList.innerHTML = '';
+    return;
+  }
+  loginPrompt.style.display = 'none';
+  resList.innerHTML = '<div class="empty-state">Loading your reservations…</div>';
+
+  // RLS on the bookings table automatically limits this to the logged-in user's own rows
+  const { data, error } = await sb
+    .from('bookings')
+    .select('*, spaces(name)')
+    .order('booking_date', { ascending: true });
+
+  if(error){
+    resList.innerHTML = `<div class="empty-state">Couldn't load your reservations: ${error.message}</div>`;
+    return;
+  }
+  if(!data || data.length===0){
+    resList.innerHTML = '<div class="empty-state">No upcoming reservations yet. Head to the Calendar page to book a space.</div>';
+    return;
+  }
+  resList.innerHTML = data.map(r => {
+    const d = new Date(r.booking_date + 'T00:00:00');
+    const day = String(d.getDate()).padStart(2,'0');
+    const mon = d.toLocaleString('en-US', { month:'short' }).toUpperCase();
+    const discountLabel = r.discount_rate > 0 ? `${Math.round(r.discount_rate*100)}%` : null;
+    return `
+    <div class="res-card">
+      <div class="res-date"><div class="d">${day}</div><div class="m">${mon}</div></div>
+      <div class="res-info">
+        <h4>${r.spaces ? r.spaces.name : r.space_id}</h4>
+        <div class="sub"><span>🕐 ${r.start_time}</span><span>⏱ ${r.duration_hours} hours</span>${discountLabel ? `<span>🏷 ${discountLabel} off</span>` : ''}</div>
+      </div>
+      <span class="status-badge ${r.status}">${r.status}</span>
+      <div class="res-price">$${Number(r.total).toFixed(0)}</div>
+    </div>
+  `;
+  }).join('');
+}
+renderReservations();
+
+/* ===================== ADMIN ===================== */
+document.getElementById('openAdmin').addEventListener('click', ()=>{
+  document.getElementById('siteShell').style.display='none';
+  document.getElementById('adminShell').classList.add('active');
+  window.scrollTo({top:0});
+});
+document.getElementById('closeAdmin').addEventListener('click', ()=>{
+  document.getElementById('adminShell').classList.remove('active');
+  document.getElementById('siteShell').style.display='block';
+  window.scrollTo({top:0});
+});
+document.querySelectorAll('.admin-nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.admin-nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
+  });
+});
+
+function badgeHtml(status){ return `<span class="mini-badge ${status}">${status}</span>`; }
+
+// Overview table (first 4 bookings)
+document.getElementById('overviewTable').innerHTML = `
+  <tr><th>ID</th><th>Customer</th><th>Space</th><th>Date</th><th>Total</th><th>Status</th></tr>
+  ${ADMIN_BOOKINGS.slice(0,4).map(b=>`
+    <tr><td>${b.id}</td><td>${b.customer}</td><td>${b.space}</td><td>${b.date}, ${b.time}</td><td>${b.total}</td><td>${badgeHtml(b.status)}</td></tr>
+  `).join('')}
+`;
+
+// Full bookings table
+document.getElementById('bookingsTable').innerHTML = `
+  <tr><th>ID</th><th>Customer</th><th>Space</th><th>Date &amp; Time</th><th>Duration</th><th>Total</th><th>Status</th><th></th></tr>
+  ${ADMIN_BOOKINGS.map(b=>`
+    <tr>
+      <td>${b.id}</td><td>${b.customer}</td><td>${b.space}</td><td>${b.date}, ${b.time}</td><td>${b.duration}</td><td>${b.total}</td><td>${badgeHtml(b.status)}</td>
+      <td class="row-actions"><button class="icon-btn">✓</button><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td>
+    </tr>
+  `).join('')}
+`;
+
+// Space management grid
+document.getElementById('spaceManageGrid').innerHTML = SPACES.map(s=>`
+  <div class="manage-card">
+    <div class="top-row"><h4>${s.name}</h4><span class="toggle-pill">Live</span></div>
+    <p style="font-size:12.5px; margin:0;">${s.packages.length} packages · ${s.amenities.length} amenities</p>
+    <div class="price">$${s.price} / ${s.unit}</div>
+    <div class="row-actions" style="margin-top:10px;">
+      <button class="icon-btn">✎ Edit</button>
+      <button class="icon-btn">📷 Photos</button>
+    </div>
+  </div>
+`).join('');
+
+// Customers table
+document.getElementById('customersTable').innerHTML = `
+  <tr><th>Name</th><th>Email</th><th>Bookings</th><th>Total Spent</th></tr>
+  ${CUSTOMERS.map(c=>`<tr><td>${c.name}</td><td>${c.email}</td><td>${c.bookings}</td><td>${c.spent}</td></tr>`).join('')}
+`;
+</script>
+</body>
+</html>
