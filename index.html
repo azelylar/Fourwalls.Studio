@@ -607,13 +607,12 @@
       <!-- Overview -->
       <div class="admin-panel active" id="panel-overview">
         <div class="panel-head"><h2>Overview</h2></div>
-        <div class="stat-cards">
-          <div class="stat-card"><div class="num">18</div><div class="lbl">Bookings this month</div><div class="delta">↑ 12% vs last month</div></div>
-          <div class="stat-card"><div class="num">$4,260</div><div class="lbl">Revenue this month</div><div class="delta">↑ 8%</div></div>
-          <div class="stat-card"><div class="num">3</div><div class="lbl">Pending payment</div><div class="delta" style="color:#A8792F;">Needs review</div></div>
-          <div class="stat-card"><div class="num">72%</div><div class="lbl">Avg. space utilization</div><div class="delta">↑ 5%</div></div>
+        <div class="stat-cards" id="overviewStatCards">
+          <div class="stat-card"><div class="num">—</div><div class="lbl">Total bookings</div></div>
+          <div class="stat-card"><div class="num">—</div><div class="lbl">Confirmed revenue</div></div>
+          <div class="stat-card"><div class="num">—</div><div class="lbl">Pending payment</div></div>
+          <div class="stat-card"><div class="num">—</div><div class="lbl">Cancelled</div></div>
         </div>
-        <div class="cal-mini-note">📌 This overview would normally pull live totals from the Calendar and Reservation data — bookings made by users on the Space→Calendar flow appear here automatically for staff to confirm.</div>
         <h3 style="margin-bottom:12px;">Recent bookings</h3>
         <table id="overviewTable"></table>
       </div>
@@ -633,15 +632,9 @@
 
       <!-- Calendar / Blackouts -->
       <div class="admin-panel" id="panel-calendar">
-        <div class="panel-head"><h2>Calendar &amp; Blackout Dates</h2></div>
-        <p style="margin-bottom:16px;">Control which dates/times are open for booking on the public Calendar page (up to 6 months ahead), and block out dates for maintenance, private events, or holidays.</p>
-        <div class="cal-mini-note">🗓 In the full build, this panel reuses the same calendar component as the public Calendar page, with an added "Block this date" / "Block this slot" action per cell, plus bulk controls (e.g. "close every Monday").</div>
-        <table>
-          <tr><th>Date</th><th>Space</th><th>Reason</th><th></th></tr>
-          <tr><td>Aug 3, 2026</td><td>All spaces</td><td>Public holiday</td><td class="row-actions"><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td></tr>
-          <tr><td>Aug 14, 2026</td><td>Photography Studio</td><td>Equipment maintenance</td><td class="row-actions"><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td></tr>
-          <tr><td>Sep 1, 2026</td><td>Event Space</td><td>Private buyout</td><td class="row-actions"><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td></tr>
-        </table>
+        <div class="panel-head"><h2>Calendar &amp; Blackout Dates</h2><button class="add-btn" id="addBlackoutBtn">+ Add Blackout Date</button></div>
+        <p style="margin-bottom:16px;">Block out dates for maintenance, private events, or holidays — either for a specific space or every space.</p>
+        <table id="blackoutTable"></table>
       </div>
 
       <!-- Customers -->
@@ -653,12 +646,26 @@
   </div>
 </div>
 
+<!-- ===== GENERIC ADMIN MODAL (Add/Edit Space, Add/Edit Blackout, Manual Booking) ===== -->
+<div class="auth-overlay" id="genericModalOverlay">
+  <div class="auth-card" id="genericModalCard" style="max-width:480px; max-height:85vh; overflow-y:auto;">
+    <button class="auth-close" id="genericModalClose">✕</button>
+    <h3 id="genericModalTitle">Title</h3>
+    <div id="genericModalBody"></div>
+    <div class="auth-error" id="genericModalError" style="display:none;"></div>
+    <button class="auth-btn" id="genericModalSubmit" style="margin-top:6px;">Save</button>
+  </div>
+</div>
+
 <!-- Real backend: Supabase (database + email OTP auth). See SUPABASE_URL / SUPABASE_ANON_KEY below. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-/* ===================== SPACE DATA (still local — see note in deployment guide about moving this to the `spaces` table) ===================== */
-const SPACES = [
+/* ===================== SPACE DATA — now loaded live from Supabase's `spaces` table (see loadSpacesFromDB below).
+   This array is used only as an offline fallback if that fetch ever fails. `packages` here is unused (the booking
+   flow uses the duration+discount system instead) and not stored in the `spaces` table. ===================== */
+let SPACES = [];
+const FALLBACK_SPACES = [
   {
     id:'dance', tag:'DANCE', name:'Dance Studio', price:60, unit:'hr',
     desc:'A sprung-floor studio with wall-to-wall mirrors and a professional sound system — built for rehearsal, choreography sessions, and dance classes of any style.',
@@ -778,33 +785,11 @@ function getDiscountRate(hours){
   return tier ? tier.rate : 0;
 }
 
-// Each reservation is tied to a customer's email (their login identity) so it can be filtered to whoever is logged in.
-// phone is kept only as a contact-number field for staff reference in Admin — it is not used for login.
-const RESERVATIONS = [
-  {customer:'Nadia R.', phone:'+65 9123 4561', email:'nadia.r@email.com', space:'Dance Studio', date:'Jul 24, 2026', day:'24', mon:'JUL', time:'5:00 PM', duration:'5 hours', discount:'10%', price:270, status:'confirmed'},
-  {customer:'Nadia R.', phone:'+65 9123 4561', email:'nadia.r@email.com', space:'Photography Studio', date:'Aug 6, 2026', day:'06', mon:'AUG', time:'9:00 AM', duration:'10 hours', discount:'20%', price:560, status:'pending'},
-  {customer:'Marcus T.', phone:'+65 9123 4562', email:'marcus.t@email.com', space:'Podcast Studio', date:'Jul 29, 2026', day:'29', mon:'JUL', time:'1:00 PM', duration:'2 hours', discount:'—', price:80, status:'confirmed'},
-  {customer:'Elle W.', phone:'+65 9123 4563', email:'elle.w@email.com', space:'Event Space', date:'Aug 22, 2026', day:'22', mon:'AUG', time:'3:00 PM', duration:'3 hours', discount:'—', price:360, status:'confirmed'},
-];
+// Reservations and Admin bookings both now load live from Supabase (see renderReservations
+// and loadAdminBookings below) — no local mock data left for either.
 
-const ADMIN_BOOKINGS = [
-  {id:'#1042', customer:'Nadia R.', space:'Dance Studio', date:'Jul 24, 2026', time:'5:00 PM', duration:'5 hrs (10% off)', total:'$270', status:'confirmed'},
-  {id:'#1043', customer:'Marcus T.', space:'Podcast Studio', date:'Jul 25, 2026', time:'11:00 AM', duration:'2 hrs', total:'$80', status:'pending'},
-  {id:'#1044', customer:'Elle W.', space:'Event Space', date:'Jul 26, 2026', time:'3:00 PM', duration:'3 hrs', total:'$360', status:'confirmed'},
-  {id:'#1045', customer:'Farid K.', space:'Photography Studio', date:'Jul 29, 2026', time:'9:00 AM', duration:'10 hrs (20% off)', total:'$560', status:'pending'},
-  {id:'#1046', customer:'Chloe S.', space:'Videography Studio', date:'Jul 30, 2026', time:'1:00 PM', duration:'4 hrs', total:'$360', status:'cancelled'},
-  {id:'#1047', customer:'Aaron L.', space:'Class Room', date:'Aug 2, 2026', time:'2:00 PM', duration:'24 hrs (30% off)', total:'$840', status:'confirmed'},
-];
-
-// NOTE: CUSTOMERS is now only used by the Admin "Customers" tab for display.
-// Real customer identity comes from Supabase auth.users — see the AUTH block below.
-const CUSTOMERS = [
-  {name:'Nadia R.', phone:'+65 9123 4561', email:'nadia.r@email.com', bookings:5, spent:'$620'},
-  {name:'Marcus T.', phone:'+65 9123 4562', email:'marcus.t@email.com', bookings:2, spent:'$130'},
-  {name:'Elle W.', phone:'+65 9123 4563', email:'elle.w@email.com', bookings:8, spent:'$1,940'},
-  {name:'Farid K.', phone:'+65 9123 4564', email:'farid.k@email.com', bookings:1, spent:'$250'},
-  {name:'Chloe S.', phone:'+65 9123 4565', email:'chloe.s@email.com', bookings:3, spent:'$410'},
-];
+// Customer identity comes entirely from Supabase auth.users now — the Admin "Customers" tab is
+// derived from real booking data (see renderAdminCustomers), no local mock list needed anymore.
 
 /* ===================== SUPABASE (real backend) ===================== */
 const SUPABASE_URL = 'https://nkittvupwxeqheruepvy.supabase.co';
@@ -918,6 +903,8 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async ()=>{
       document.getElementById('adminShell').classList.add('active');
       window.scrollTo({top:0});
       loadAdminBookings();
+      renderAdminSpaces();
+      loadAdminBlackouts();
     } else {
       alert("This account isn't set up for Admin access. If this should be you, add your user ID to the admin_users table in Supabase.");
     }
@@ -987,41 +974,52 @@ function goToPage(name){
 
 /* ===================== SPACE PAGE ===================== */
 const spaceGrid = document.getElementById('spaceGrid');
-SPACES.forEach(s=>{
-  const card = document.createElement('div');
-  card.className = 'space-card';
-  card.innerHTML = `
-    <div class="thumb"><span class="tag">${s.tag}</span><img src="${s.photos[0]}" alt="${s.name}"></div>
-    <div class="body">
-      <h3>${s.name}</h3>
-      <p style="font-size:13px; margin-bottom:0;">${s.desc.slice(0,70)}…</p>
-      <div class="meta">
-        <div class="price-tag">$${s.price} <span>/ ${s.unit}</span></div>
-        <div class="arrow-chip">→</div>
-      </div>
-    </div>`;
-  card.addEventListener('click', ()=>openSpaceDetail(s.id));
-  spaceGrid.appendChild(card);
-});
+function renderSpaceGrid(){
+  if(SPACES.length === 0){
+    spaceGrid.innerHTML = '<p>No spaces have been added yet — check back soon.</p>';
+    return;
+  }
+  spaceGrid.innerHTML = '';
+  SPACES.forEach(s=>{
+    const card = document.createElement('div');
+    card.className = 'space-card';
+    card.innerHTML = `
+      <div class="thumb"><span class="tag">${s.tag}</span><img src="${s.photos[0] || ''}" alt="${s.name}"></div>
+      <div class="body">
+        <h3>${s.name}</h3>
+        <p style="font-size:13px; margin-bottom:0;">${(s.desc||'').slice(0,70)}…</p>
+        <div class="meta">
+          <div class="price-tag">$${s.price} <span>/ ${s.unit}</span></div>
+          <div class="arrow-chip">→</div>
+        </div>
+      </div>`;
+    card.addEventListener('click', ()=>openSpaceDetail(s.id));
+    spaceGrid.appendChild(card);
+  });
+}
 
 let currentSpaceId = null;
 function openSpaceDetail(id){
   const s = SPACES.find(x=>x.id===id);
+  if(!s) return;
   currentSpaceId = id;
   document.getElementById('spaceListView').style.display = 'none';
   document.getElementById('spaceDetailView').classList.add('active');
   document.getElementById('detailTag').textContent = s.tag;
   document.getElementById('detailName').textContent = s.name;
   document.getElementById('detailDesc').textContent = s.desc;
-  document.getElementById('mainPhoto').src = s.photos[0];
+  document.getElementById('mainPhoto').src = s.photos[0] || '';
   document.getElementById('detailPrice').textContent = '$'+s.price;
 
-  document.getElementById('detailStats').innerHTML = s.stats.map(([num,lbl])=>
+  const stats = s.stats || [];
+  const statsEl = document.getElementById('detailStats');
+  statsEl.style.display = stats.length ? 'flex' : 'none';
+  statsEl.innerHTML = stats.map(([num,lbl])=>
     `<div class="stat"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`).join('');
-  document.getElementById('detailAmenities').innerHTML = s.amenities.map(a=>
+  document.getElementById('detailAmenities').innerHTML = (s.amenities||[]).map(a=>
     `<span class="amenity-pill">${a}</span>`).join('');
   const strip = document.getElementById('photoStrip');
-  strip.innerHTML = s.photos.map((p,i)=>
+  strip.innerHTML = (s.photos||[]).map((p,i)=>
     `<div class="thumb-s ${i===0?'sel':''}" data-i="${i}"><img src="${p}"></div>`).join('');
   strip.querySelectorAll('.thumb-s').forEach(t=>{
     t.addEventListener('click', ()=>{
@@ -1043,28 +1041,33 @@ document.getElementById('bookItBtn').addEventListener('click', ()=>{
 
 /* ===================== CALENDAR PAGE ===================== */
 const spaceChipsEl = document.getElementById('spaceChips');
-SPACES.forEach(s=>{
-  const chip = document.createElement('button');
-  chip.className = 'space-chip';
-  chip.textContent = s.tag;
-  chip.dataset.id = s.id;
-  chip.addEventListener('click', ()=>selectSpaceChip(s.id));
-  spaceChipsEl.appendChild(chip);
-});
-let selectedSpace = SPACES[0].id;
+function renderSpaceChips(){
+  spaceChipsEl.innerHTML = '';
+  SPACES.forEach(s=>{
+    const chip = document.createElement('button');
+    chip.className = 'space-chip';
+    chip.textContent = s.tag;
+    chip.dataset.id = s.id;
+    chip.addEventListener('click', ()=>selectSpaceChip(s.id));
+    spaceChipsEl.appendChild(chip);
+  });
+}
+let selectedSpace = null;
 let selectedDate = null, selectedDateISO = null, selectedTime = null, selectedDuration = null;
 
-// Calendar month state (declared before first use in selectSpaceChip below)
-let today = new Date(2026,6,20); // Jul 20 2026 per session date
+// Calendar month state — uses the real current date on a live site (was frozen to a fixed demo date before)
+let today = new Date();
 let viewMonth = today.getMonth();
 let viewYear = today.getFullYear();
 const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 function selectSpaceChip(id){
+  if(!id) return;
   selectedSpace = id;
   selectedDate = null; selectedDateISO = null; selectedTime = null; selectedDuration = null;
   document.querySelectorAll('.space-chip').forEach(c=>c.classList.toggle('sel', c.dataset.id===id));
   const s = SPACES.find(x=>x.id===id);
+  if(!s) return;
   document.getElementById('calSpaceLabel').textContent = s.name+' — pick a date';
   document.getElementById('timeSelect').value = '';
   document.getElementById('durationSelect').value = '';
@@ -1072,7 +1075,23 @@ function selectSpaceChip(id){
   updateSummary();
   document.getElementById('payPanel').classList.remove('show');
 }
-selectSpaceChip(SPACES[0].id);
+
+/* ===================== LOAD SPACES FROM SUPABASE (falls back to FALLBACK_SPACES if the fetch fails) ===================== */
+async function loadSpacesFromDB(){
+  const { data, error } = await sb.from('spaces').select('*').order('name');
+  if(error || !data || data.length === 0){
+    SPACES = FALLBACK_SPACES;
+  } else {
+    SPACES = data.map(row => ({
+      id: row.id, tag: row.tag, name: row.name, price: Number(row.price_per_hour), unit: 'hr',
+      desc: row.description || '', photos: row.photos || [], amenities: row.amenities || [], stats: []
+    }));
+  }
+  renderSpaceGrid();
+  renderSpaceChips();
+  if(SPACES.length) selectSpaceChip(SPACES[0].id);
+}
+loadSpacesFromDB();
 
 function renderCalendar(){
   document.getElementById('monthLabel').textContent = monthNames[viewMonth]+' '+viewYear;
@@ -1094,8 +1113,10 @@ function renderCalendar(){
     if(thisDate < new Date(today.getFullYear(),today.getMonth(),today.getDate()) || thisDate > maxDate){
       el.className='cal-day past';
     } else {
-      // pseudo-random availability based on date+space for demo consistency
-      const seed = (d*7 + selectedSpace.length*13) % 10;
+      // Placeholder availability pattern (not yet wired to real blackout_dates — see Admin > Calendar/Blackouts,
+      // which does write real data, just isn't enforced here yet). Null-guarded since this can render before
+      // loadSpacesFromDB() resolves and selectedSpace is set.
+      const seed = (d*7 + (selectedSpace ? selectedSpace.length : 0)*13) % 10;
       const isLimited = seed < 2;
       el.className = 'cal-day ' + (isLimited ? 'limited' : 'avail');
       el.addEventListener('click', ()=>{
@@ -1312,6 +1333,8 @@ document.getElementById('openAdmin').addEventListener('click', async ()=>{
   document.getElementById('adminShell').classList.add('active');
   window.scrollTo({top:0});
   loadAdminBookings();
+  renderAdminSpaces();
+  loadAdminBlackouts();
 });
 document.getElementById('closeAdmin').addEventListener('click', ()=>{
   document.getElementById('adminShell').classList.remove('active');
@@ -1328,25 +1351,52 @@ document.querySelectorAll('.admin-nav button').forEach(btn=>{
 });
 
 function badgeHtml(status){ return `<span class="mini-badge ${status}">${status}</span>`; }
-
-// Anything in Admin not yet wired to Supabase shows this instead of silently doing nothing.
-function comingSoon(feature){
-  alert(`${feature} isn't connected to the database yet — this is still a visual placeholder. Ask to have it built next if you need it.`);
-}
-
-/* ===================== ADMIN — Bookings (real, via a security-definer RPC so it can include the customer's email) ===================== */
 function fmtBookingDate(iso, time){
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ', ' + time;
 }
+
+/* ===================== GENERIC ADMIN MODAL (Add/Edit Space, Add/Edit Blackout, Manual Booking) ===================== */
+function openModal(title, bodyHtml, onSubmit, submitLabel){
+  document.getElementById('genericModalTitle').textContent = title;
+  document.getElementById('genericModalBody').innerHTML = bodyHtml;
+  const errEl = document.getElementById('genericModalError');
+  errEl.style.display = 'none';
+  const submitBtn = document.getElementById('genericModalSubmit');
+  submitBtn.textContent = submitLabel || 'Save';
+  submitBtn.onclick = async ()=>{
+    submitBtn.disabled = true;
+    const originalLabel = submitBtn.textContent;
+    submitBtn.textContent = 'Saving…';
+    try{
+      const errMsg = await onSubmit();
+      if(errMsg){
+        errEl.textContent = errMsg;
+        errEl.style.display = 'block';
+      } else {
+        closeModal();
+      }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalLabel;
+    }
+  };
+  document.getElementById('genericModalOverlay').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('genericModalOverlay').classList.remove('open');
+}
+document.getElementById('genericModalClose').addEventListener('click', closeModal);
+
+/* ===================== ADMIN — Bookings, Overview & Customers (all derived from one real RPC call) ===================== */
+let adminBookingsCache = [];
 
 async function adminSetBookingStatus(bookingId, status){
   const { error } = await sb.from('bookings').update({ status }).eq('id', bookingId);
   if(error){ alert('Could not update booking: ' + error.message); return; }
   loadAdminBookings();
 }
-// Exposed on window so the inline onclick= handlers in the generated table HTML can reach it
-window.adminSetBookingStatus = adminSetBookingStatus;
+window.adminSetBookingStatus = adminSetBookingStatus; // reachable from the inline onclick= in generated table HTML
 
 function renderAdminBookingTables(rows){
   const actionCell = (r) => `
@@ -1375,6 +1425,35 @@ function renderAdminBookingTables(rows){
   `;
 }
 
+function renderAdminOverviewStats(rows){
+  const total = rows.length;
+  const confirmedRevenue = rows.filter(r=>r.status==='confirmed').reduce((sum,r)=>sum+Number(r.total),0);
+  const pending = rows.filter(r=>r.status==='pending').length;
+  const cancelled = rows.filter(r=>r.status==='cancelled').length;
+  document.getElementById('overviewStatCards').innerHTML = `
+    <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total bookings</div></div>
+    <div class="stat-card"><div class="num">$${confirmedRevenue.toFixed(0)}</div><div class="lbl">Confirmed revenue</div></div>
+    <div class="stat-card"><div class="num">${pending}</div><div class="lbl">Pending payment</div></div>
+    <div class="stat-card"><div class="num">${cancelled}</div><div class="lbl">Cancelled</div></div>
+  `;
+}
+
+function renderAdminCustomers(rows){
+  const byCustomer = {};
+  rows.forEach(r=>{
+    if(!byCustomer[r.customer_email]) byCustomer[r.customer_email] = { bookings:0, spent:0 };
+    byCustomer[r.customer_email].bookings += 1;
+    if(r.status !== 'cancelled') byCustomer[r.customer_email].spent += Number(r.total);
+  });
+  const emails = Object.keys(byCustomer);
+  document.getElementById('customersTable').innerHTML = `
+    <tr><th>Email</th><th>Bookings</th><th>Total Spent</th></tr>
+    ${emails.length ? emails.map(email => `
+      <tr><td>${email}</td><td>${byCustomer[email].bookings}</td><td>$${byCustomer[email].spent.toFixed(0)}</td></tr>
+    `).join('') : '<tr><td colspan="3">No customers yet — this fills in automatically once bookings come in.</td></tr>'}
+  `;
+}
+
 async function loadAdminBookings(){
   const loadingRow = '<tr><td>Loading…</td></tr>';
   document.getElementById('overviewTable').innerHTML = loadingRow;
@@ -1386,32 +1465,208 @@ async function loadAdminBookings(){
     document.getElementById('bookingsTable').innerHTML = errRow;
     return;
   }
-  renderAdminBookingTables(data || []);
+  adminBookingsCache = data || [];
+  renderAdminBookingTables(adminBookingsCache);
+  renderAdminOverviewStats(adminBookingsCache);
+  renderAdminCustomers(adminBookingsCache);
 }
 
-// Space management grid — display only for now; edit/photos aren't wired to the database yet
-document.getElementById('spaceManageGrid').innerHTML = SPACES.map(s=>`
-  <div class="manage-card">
-    <div class="top-row"><h4>${s.name}</h4><span class="toggle-pill">Live</span></div>
-    <p style="font-size:12.5px; margin:0;">${s.packages.length} packages · ${s.amenities.length} amenities</p>
-    <div class="price">$${s.price} / ${s.unit}</div>
-    <div class="row-actions" style="margin-top:10px;">
-      <button class="icon-btn" onclick="comingSoon('Editing spaces')">✎ Edit</button>
-      <button class="icon-btn" onclick="comingSoon('Managing photos')">📷 Photos</button>
-    </div>
-  </div>
-`).join('');
-document.querySelector('#panel-spaces .add-btn').addEventListener('click', ()=>comingSoon('Adding a new space'));
-document.querySelector('#panel-bookings .add-btn').addEventListener('click', ()=>comingSoon('Manual booking entry'));
-document.querySelectorAll('#panel-calendar .icon-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>comingSoon('Blackout date management'));
-});
+/* ===================== ADMIN — Spaces & Packages (real Add/Edit against the `spaces` table) ===================== */
+function spaceFormHtml(s){
+  s = s || {};
+  return `
+    <div class="field-label" style="margin-top:0;">Space ID (unique, lowercase, no spaces — can't be changed later)</div>
+    <input class="text-input" id="f_id" placeholder="e.g. rooftop" value="${s.id || ''}" ${s.id ? 'disabled' : ''}>
+    <div class="field-label">Name</div>
+    <input class="text-input" id="f_name" placeholder="Rooftop Deck" value="${s.name || ''}">
+    <div class="field-label">Tag (short badge shown on the card)</div>
+    <input class="text-input" id="f_tag" placeholder="ROOFTOP" value="${s.tag || ''}">
+    <div class="field-label">Price per hour ($)</div>
+    <input class="text-input" id="f_price" type="number" min="0" step="1" placeholder="80" value="${s.price ?? ''}">
+    <div class="field-label">Description</div>
+    <textarea class="text-input" id="f_desc" rows="3">${s.desc || ''}</textarea>
+    <div class="field-label">Photo URLs (one per line)</div>
+    <textarea class="text-input" id="f_photos" rows="3">${(s.photos||[]).join('\n')}</textarea>
+    <div class="field-label">Amenities (one per line)</div>
+    <textarea class="text-input" id="f_amenities" rows="3">${(s.amenities||[]).join('\n')}</textarea>
+  `;
+}
+function readSpaceForm(){
+  return {
+    name: document.getElementById('f_name').value.trim(),
+    tag: document.getElementById('f_tag').value.trim().toUpperCase(),
+    price: parseFloat(document.getElementById('f_price').value),
+    desc: document.getElementById('f_desc').value.trim(),
+    photos: document.getElementById('f_photos').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    amenities: document.getElementById('f_amenities').value.split('\n').map(s=>s.trim()).filter(Boolean),
+  };
+}
 
-// Customers table — still the placeholder list; a real version would aggregate the bookings above by customer_email
-document.getElementById('customersTable').innerHTML = `
-  <tr><th>Name</th><th>Email</th><th>Bookings</th><th>Total Spent</th></tr>
-  ${CUSTOMERS.map(c=>`<tr><td>${c.name}</td><td>${c.email}</td><td>${c.bookings}</td><td>${c.spent}</td></tr>`).join('')}
-`;
+function openAddSpaceModal(){
+  openModal('Add Space', spaceFormHtml(), async ()=>{
+    const id = document.getElementById('f_id').value.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    const f = readSpaceForm();
+    if(!id || !f.name || !f.tag || !f.price){ return 'Space ID, name, tag, and price are all required.'; }
+    const { error } = await sb.from('spaces').insert({
+      id, name: f.name, tag: f.tag, price_per_hour: f.price, description: f.desc, photos: f.photos, amenities: f.amenities
+    });
+    if(error) return 'Could not add space: ' + error.message;
+    await loadSpacesFromDB();
+    renderAdminSpaces();
+  }, 'Add Space');
+}
+
+function openEditSpaceModal(spaceId){
+  const s = SPACES.find(x=>x.id===spaceId);
+  if(!s) return;
+  openModal('Edit ' + s.name, spaceFormHtml(s), async ()=>{
+    const f = readSpaceForm();
+    if(!f.name || !f.tag || !f.price){ return 'Name, tag, and price are all required.'; }
+    const { error } = await sb.from('spaces').update({
+      name: f.name, tag: f.tag, price_per_hour: f.price, description: f.desc, photos: f.photos, amenities: f.amenities
+    }).eq('id', spaceId);
+    if(error) return 'Could not save changes: ' + error.message;
+    await loadSpacesFromDB();
+    renderAdminSpaces();
+  }, 'Save Changes');
+}
+
+function renderAdminSpaces(){
+  const grid = document.getElementById('spaceManageGrid');
+  if(SPACES.length === 0){
+    grid.innerHTML = '<p>No spaces yet — click "+ Add Space" to create your first one.</p>';
+    return;
+  }
+  grid.innerHTML = SPACES.map(s=>`
+    <div class="manage-card">
+      <div class="top-row"><h4>${s.name}</h4><span class="toggle-pill">Live</span></div>
+      <p style="font-size:12.5px; margin:0;">${s.amenities.length} amenities · ${s.photos.length} photos</p>
+      <div class="price">$${s.price} / ${s.unit}</div>
+      <div class="row-actions" style="margin-top:10px;">
+        <button class="icon-btn" onclick="openEditSpaceModal('${s.id}')">✎ Edit</button>
+      </div>
+    </div>
+  `).join('');
+}
+window.openEditSpaceModal = openEditSpaceModal;
+document.querySelector('#panel-spaces .add-btn').addEventListener('click', openAddSpaceModal);
+
+/* ===================== ADMIN — Calendar / Blackout Dates (real table: blackout_dates) ===================== */
+function blackoutFormHtml(b){
+  b = b || {};
+  const spaceOptions = ['<option value="">All spaces</option>']
+    .concat(SPACES.map(s=>`<option value="${s.id}" ${b.space_id===s.id?'selected':''}>${s.name}</option>`));
+  return `
+    <div class="field-label" style="margin-top:0;">Date</div>
+    <input class="text-input" id="f_bdate" type="date" value="${b.blackout_date || ''}">
+    <div class="field-label">Space</div>
+    <select class="select-input" id="f_bspace">${spaceOptions.join('')}</select>
+    <div class="field-label">Reason</div>
+    <input class="text-input" id="f_breason" placeholder="e.g. Public holiday" value="${b.reason || ''}">
+  `;
+}
+
+function openAddBlackoutModal(){
+  openModal('Add Blackout Date', blackoutFormHtml(), async ()=>{
+    const date = document.getElementById('f_bdate').value;
+    const spaceId = document.getElementById('f_bspace').value || null;
+    const reason = document.getElementById('f_breason').value.trim();
+    if(!date) return 'Please choose a date.';
+    const { error } = await sb.from('blackout_dates').insert({ blackout_date: date, space_id: spaceId, reason });
+    if(error) return 'Could not add blackout date: ' + error.message;
+    loadAdminBlackouts();
+  }, 'Add Blackout Date');
+}
+
+function openEditBlackoutModal(row){
+  openModal('Edit Blackout Date', blackoutFormHtml(row), async ()=>{
+    const date = document.getElementById('f_bdate').value;
+    const spaceId = document.getElementById('f_bspace').value || null;
+    const reason = document.getElementById('f_breason').value.trim();
+    if(!date) return 'Please choose a date.';
+    const { error } = await sb.from('blackout_dates').update({ blackout_date: date, space_id: spaceId, reason }).eq('id', row.id);
+    if(error) return 'Could not save changes: ' + error.message;
+    loadAdminBlackouts();
+  }, 'Save Changes');
+}
+
+async function deleteBlackout(id){
+  if(!confirm('Remove this blackout date?')) return;
+  const { error } = await sb.from('blackout_dates').delete().eq('id', id);
+  if(error){ alert('Could not remove: ' + error.message); return; }
+  loadAdminBlackouts();
+}
+window.deleteBlackout = deleteBlackout;
+
+let blackoutsCache = [];
+window.openEditBlackoutById = (id) => {
+  const row = blackoutsCache.find(b=>b.id===id);
+  if(row) openEditBlackoutModal(row);
+};
+
+async function loadAdminBlackouts(){
+  const table = document.getElementById('blackoutTable');
+  table.innerHTML = '<tr><td>Loading…</td></tr>';
+  const { data, error } = await sb.from('blackout_dates').select('*, spaces(name)').order('blackout_date');
+  if(error){
+    table.innerHTML = `<tr><td>Couldn't load blackout dates: ${error.message}</td></tr>`;
+    return;
+  }
+  blackoutsCache = data || [];
+  table.innerHTML = `
+    <tr><th>Date</th><th>Space</th><th>Reason</th><th></th></tr>
+    ${blackoutsCache.length ? blackoutsCache.map(b => `
+      <tr>
+        <td>${new Date(b.blackout_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+        <td>${b.spaces ? b.spaces.name : 'All spaces'}</td>
+        <td>${b.reason || '—'}</td>
+        <td class="row-actions">
+          <button class="icon-btn" onclick="openEditBlackoutById('${b.id}')">✎</button>
+          <button class="icon-btn" onclick="deleteBlackout('${b.id}')">✕</button>
+        </td>
+      </tr>
+    `).join('') : '<tr><td colspan="4">No blackout dates — every date is open for booking.</td></tr>'}
+  `;
+}
+document.getElementById('addBlackoutBtn').addEventListener('click', openAddBlackoutModal);
+
+/* ===================== ADMIN — Manual Booking Entry (via a security-definer RPC; customer must already have an account) ===================== */
+function manualBookingFormHtml(){
+  const spaceOptions = SPACES.map(s=>`<option value="${s.id}">${s.name} ($${s.price}/hr)</option>`).join('');
+  const durationOptions = Array.from({length:23}, (_,i)=>i+2).map(h=>`<option value="${h}">${h} hours</option>`).join('');
+  return `
+    <div class="field-label" style="margin-top:0;">Customer email (must already have an account — they log in at least once first)</div>
+    <input class="text-input" id="f_mcustomer" type="email" placeholder="customer@email.com">
+    <div class="field-label">Space</div>
+    <select class="select-input" id="f_mspace">${spaceOptions}</select>
+    <div class="field-label">Date</div>
+    <input class="text-input" id="f_mdate" type="date">
+    <div class="field-label">Start time</div>
+    <select class="select-input" id="f_mtime">${TIME_OPTIONS.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
+    <div class="field-label">Duration</div>
+    <select class="select-input" id="f_mduration">${durationOptions}</select>
+    <div class="field-label">Status</div>
+    <select class="select-input" id="f_mstatus"><option value="confirmed">Confirmed</option><option value="pending">Pending</option></select>
+  `;
+}
+function openManualBookingModal(){
+  openModal('New Manual Booking', manualBookingFormHtml(), async ()=>{
+    const email = document.getElementById('f_mcustomer').value.trim();
+    const spaceId = document.getElementById('f_mspace').value;
+    const date = document.getElementById('f_mdate').value;
+    const time = document.getElementById('f_mtime').value;
+    const duration = parseInt(document.getElementById('f_mduration').value, 10);
+    const status = document.getElementById('f_mstatus').value;
+    if(!email || !spaceId || !date || !time || !duration) return 'All fields are required.';
+    const { error } = await sb.rpc('admin_create_manual_booking', {
+      p_customer_email: email, p_space_id: spaceId, p_booking_date: date,
+      p_start_time: time, p_duration_hours: duration, p_status: status
+    });
+    if(error) return error.message;
+    loadAdminBookings();
+  }, 'Create Booking');
+}
+document.querySelector('#panel-bookings .add-btn').addEventListener('click', openManualBookingModal);
 </script>
 </body>
 </html>
