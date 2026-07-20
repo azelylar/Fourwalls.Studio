@@ -917,6 +917,7 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async ()=>{
       document.getElementById('siteShell').style.display='none';
       document.getElementById('adminShell').classList.add('active');
       window.scrollTo({top:0});
+      loadAdminBookings();
     } else {
       alert("This account isn't set up for Admin access. If this should be you, add your user ID to the admin_users table in Supabase.");
     }
@@ -1310,6 +1311,7 @@ document.getElementById('openAdmin').addEventListener('click', async ()=>{
   document.getElementById('siteShell').style.display='none';
   document.getElementById('adminShell').classList.add('active');
   window.scrollTo({top:0});
+  loadAdminBookings();
 });
 document.getElementById('closeAdmin').addEventListener('click', ()=>{
   document.getElementById('adminShell').classList.remove('active');
@@ -1327,39 +1329,85 @@ document.querySelectorAll('.admin-nav button').forEach(btn=>{
 
 function badgeHtml(status){ return `<span class="mini-badge ${status}">${status}</span>`; }
 
-// Overview table (first 4 bookings)
-document.getElementById('overviewTable').innerHTML = `
-  <tr><th>ID</th><th>Customer</th><th>Space</th><th>Date</th><th>Total</th><th>Status</th></tr>
-  ${ADMIN_BOOKINGS.slice(0,4).map(b=>`
-    <tr><td>${b.id}</td><td>${b.customer}</td><td>${b.space}</td><td>${b.date}, ${b.time}</td><td>${b.total}</td><td>${badgeHtml(b.status)}</td></tr>
-  `).join('')}
-`;
+// Anything in Admin not yet wired to Supabase shows this instead of silently doing nothing.
+function comingSoon(feature){
+  alert(`${feature} isn't connected to the database yet — this is still a visual placeholder. Ask to have it built next if you need it.`);
+}
 
-// Full bookings table
-document.getElementById('bookingsTable').innerHTML = `
-  <tr><th>ID</th><th>Customer</th><th>Space</th><th>Date &amp; Time</th><th>Duration</th><th>Total</th><th>Status</th><th></th></tr>
-  ${ADMIN_BOOKINGS.map(b=>`
-    <tr>
-      <td>${b.id}</td><td>${b.customer}</td><td>${b.space}</td><td>${b.date}, ${b.time}</td><td>${b.duration}</td><td>${b.total}</td><td>${badgeHtml(b.status)}</td>
-      <td class="row-actions"><button class="icon-btn">✓</button><button class="icon-btn">✎</button><button class="icon-btn">✕</button></td>
-    </tr>
-  `).join('')}
-`;
+/* ===================== ADMIN — Bookings (real, via a security-definer RPC so it can include the customer's email) ===================== */
+function fmtBookingDate(iso, time){
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ', ' + time;
+}
 
-// Space management grid
+async function adminSetBookingStatus(bookingId, status){
+  const { error } = await sb.from('bookings').update({ status }).eq('id', bookingId);
+  if(error){ alert('Could not update booking: ' + error.message); return; }
+  loadAdminBookings();
+}
+// Exposed on window so the inline onclick= handlers in the generated table HTML can reach it
+window.adminSetBookingStatus = adminSetBookingStatus;
+
+function renderAdminBookingTables(rows){
+  const actionCell = (r) => `
+    <td class="row-actions">
+      <button class="icon-btn" title="Mark confirmed" onclick="adminSetBookingStatus('${r.id}','confirmed')">✓</button>
+      <button class="icon-btn" title="Cancel booking" onclick="adminSetBookingStatus('${r.id}','cancelled')">✕</button>
+    </td>`;
+
+  document.getElementById('overviewTable').innerHTML = `
+    <tr><th>Customer</th><th>Space</th><th>Date</th><th>Total</th><th>Status</th></tr>
+    ${rows.length ? rows.slice(0,4).map(r => `
+      <tr><td>${r.customer_email}</td><td>${r.space_name}</td><td>${fmtBookingDate(r.booking_date, r.start_time)}</td><td>$${Number(r.total).toFixed(0)}</td><td>${badgeHtml(r.status)}</td></tr>
+    `).join('') : '<tr><td colspan="5">No bookings yet.</td></tr>'}
+  `;
+
+  document.getElementById('bookingsTable').innerHTML = `
+    <tr><th>Customer</th><th>Space</th><th>Date &amp; Time</th><th>Duration</th><th>Total</th><th>Status</th><th></th></tr>
+    ${rows.length ? rows.map(r => `
+      <tr>
+        <td>${r.customer_email}</td><td>${r.space_name}</td><td>${fmtBookingDate(r.booking_date, r.start_time)}</td>
+        <td>${r.duration_hours} hrs${r.discount_rate > 0 ? ` (${Math.round(r.discount_rate*100)}% off)` : ''}</td>
+        <td>$${Number(r.total).toFixed(0)}</td><td>${badgeHtml(r.status)}</td>
+        ${actionCell(r)}
+      </tr>
+    `).join('') : '<tr><td colspan="7">No bookings yet.</td></tr>'}
+  `;
+}
+
+async function loadAdminBookings(){
+  const loadingRow = '<tr><td>Loading…</td></tr>';
+  document.getElementById('overviewTable').innerHTML = loadingRow;
+  document.getElementById('bookingsTable').innerHTML = loadingRow;
+  const { data, error } = await sb.rpc('get_admin_bookings');
+  if(error){
+    const errRow = `<tr><td>Couldn't load bookings: ${error.message}</td></tr>`;
+    document.getElementById('overviewTable').innerHTML = errRow;
+    document.getElementById('bookingsTable').innerHTML = errRow;
+    return;
+  }
+  renderAdminBookingTables(data || []);
+}
+
+// Space management grid — display only for now; edit/photos aren't wired to the database yet
 document.getElementById('spaceManageGrid').innerHTML = SPACES.map(s=>`
   <div class="manage-card">
     <div class="top-row"><h4>${s.name}</h4><span class="toggle-pill">Live</span></div>
     <p style="font-size:12.5px; margin:0;">${s.packages.length} packages · ${s.amenities.length} amenities</p>
     <div class="price">$${s.price} / ${s.unit}</div>
     <div class="row-actions" style="margin-top:10px;">
-      <button class="icon-btn">✎ Edit</button>
-      <button class="icon-btn">📷 Photos</button>
+      <button class="icon-btn" onclick="comingSoon('Editing spaces')">✎ Edit</button>
+      <button class="icon-btn" onclick="comingSoon('Managing photos')">📷 Photos</button>
     </div>
   </div>
 `).join('');
+document.querySelector('#panel-spaces .add-btn').addEventListener('click', ()=>comingSoon('Adding a new space'));
+document.querySelector('#panel-bookings .add-btn').addEventListener('click', ()=>comingSoon('Manual booking entry'));
+document.querySelectorAll('#panel-calendar .icon-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>comingSoon('Blackout date management'));
+});
 
-// Customers table
+// Customers table — still the placeholder list; a real version would aggregate the bookings above by customer_email
 document.getElementById('customersTable').innerHTML = `
   <tr><th>Name</th><th>Email</th><th>Bookings</th><th>Total Spent</th></tr>
   ${CUSTOMERS.map(c=>`<tr><td>${c.name}</td><td>${c.email}</td><td>${c.bookings}</td><td>${c.spent}</td></tr>`).join('')}
