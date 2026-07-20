@@ -835,6 +835,8 @@ function openAuth(reason){
     msg.textContent = "Almost done — verify your email with a one-time code to confirm this booking.";
   } else if(reason === 'reservation'){
     msg.textContent = "Log in with your email to see your upcoming reservations.";
+  } else if(reason === 'admin'){
+    msg.textContent = "Staff login — verify your email to access the Admin dashboard.";
   } else {
     msg.textContent = "Enter your email and we'll send you a one-time code — no password needed.";
   }
@@ -907,7 +909,18 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async ()=>{
   updateSummary();
   const reason = authReason;
   authReason = null;
-  if(reason === 'reservation') goToPage('reservation');
+  if(reason === 'reservation'){
+    goToPage('reservation');
+  } else if(reason === 'admin'){
+    const isAdmin = await isCurrentUserAdmin();
+    if(isAdmin){
+      document.getElementById('siteShell').style.display='none';
+      document.getElementById('adminShell').classList.add('active');
+      window.scrollTo({top:0});
+    } else {
+      alert("This account isn't set up for Admin access. If this should be you, add your user ID to the admin_users table in Supabase.");
+    }
+  }
 });
 
 async function logout(){
@@ -1271,8 +1284,29 @@ async function renderReservations(){
 }
 renderReservations();
 
-/* ===================== ADMIN ===================== */
-document.getElementById('openAdmin').addEventListener('click', ()=>{
+/* ===================== ADMIN (now gated by real Supabase login + admin_users membership) ===================== */
+async function isCurrentUserAdmin(){
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user) return false;
+  const { data, error } = await sb.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle();
+  return !error && !!data;
+}
+
+document.getElementById('openAdmin').addEventListener('click', async ()=>{
+  const btn = document.getElementById('openAdmin');
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user){
+    // Not logged in at all — send them through the same email OTP flow first
+    openAuth('admin');
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Checking…';
+  const isAdmin = await isCurrentUserAdmin();
+  btn.disabled = false; btn.textContent = '⚙ Admin';
+  if(!isAdmin){
+    alert("This account isn't set up for Admin access. If this should be you, add your user ID to the admin_users table in Supabase.");
+    return;
+  }
   document.getElementById('siteShell').style.display='none';
   document.getElementById('adminShell').classList.add('active');
   window.scrollTo({top:0});
